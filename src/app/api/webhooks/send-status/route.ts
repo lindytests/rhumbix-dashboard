@@ -9,7 +9,7 @@ interface WebhookPayload {
   lead_id: string;
   sender_inbox_id: string;
   email_number: number;
-  status: "bounced" | "replied";
+  status: "bounced" | "replied" | "stop_requested";
 }
 
 export async function POST(request: NextRequest) {
@@ -51,8 +51,8 @@ export async function POST(request: NextRequest) {
       .where(eq(leads.id, lead_id));
   }
 
-  if (status === "replied") {
-    // Mark lead as responded and completed
+  if (status === "replied" || status === "stop_requested") {
+    // Mark lead as responded and completed (stops the sequence)
     await db
       .update(leads)
       .set({
