@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Clock, Plus, Trash2, Loader2 } from "lucide-react";
+import { ArrowLeft, Clock, Lightbulb, Pencil, Plus, Trash2, Loader2 } from "lucide-react";
 import { CampaignSendButton } from "@/components/campaign-send-button";
 import { CampaignDeleteButton } from "@/components/campaign-delete-button";
 import { updateCampaignInline } from "@/lib/actions/campaigns";
@@ -255,9 +255,8 @@ export function CampaignDetailClient({
     }
   };
 
-  const VARIABLES = ["{{first_name}}", "{{last_name}}", "{{company}}", "{{title}}", "{{sender_name}}"];
-
   return (
+    <>
     <div className="space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -347,13 +346,33 @@ export function CampaignDetailClient({
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* Email sequence */}
         <div className="lg:col-span-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-[17px] font-semibold font-heading">
-              Email Sequence
-            </h2>
-            <span className="text-[12px] text-muted-foreground font-mono tabular-nums">
-              {steps.length} of 5 emails
-            </span>
+          <h2 className="text-[17px] font-semibold font-heading">
+            Email Sequence
+          </h2>
+
+          {/* Placeholder tip */}
+          <div className="rounded-xl border border-amber/20 bg-amber/[0.04] px-5 py-4">
+            <div className="flex gap-3">
+              <Lightbulb className="h-4 w-4 text-amber shrink-0 mt-0.5" />
+              <div className="space-y-1.5">
+                <p className="text-[13px] font-semibold text-foreground leading-snug">
+                  Use placeholders in your email copy
+                </p>
+                <p className="text-[12px] leading-relaxed text-muted-foreground">
+                  Wrap any instruction in{" "}
+                  <code className="text-[11px] bg-amber/10 text-amber-foreground px-1 py-px rounded font-mono">{"{{"}...{"}}"}</code>{" "}
+                  and AI will fill it in per lead. Use data fields like{" "}
+                  <code className="text-[11px] bg-amber/10 text-amber-foreground px-1 py-px rounded font-mono">{"{{first_name}}"}</code>{" "}
+                  or natural language like{" "}
+                  <code className="text-[11px] bg-amber/10 text-amber-foreground px-1 py-px rounded font-mono">{"{{2-3 sentence outro that leaves the door open}}"}</code>.
+                </p>
+                <p className="text-[11px] leading-relaxed text-muted-foreground/70">
+                  Note: The referenced data must be available to the agent (e.g. imported as lead fields).
+                  <br />
+                  Placeholders referencing unavailable data will be skipped.
+                </p>
+              </div>
+            </div>
           </div>
 
           {steps.map((step, i) => (
@@ -407,29 +426,16 @@ export function CampaignDetailClient({
                   {/* Body */}
                   <div className="border-t border-border pt-3">
                     {editing?.type === "body" && editing.step === i ? (
-                      <div className="space-y-2">
-                        <textarea
-                          ref={textareaRef}
-                          value={editBuffer}
-                          onChange={(e) => setEditBuffer(e.target.value)}
-                          onBlur={commitEditing}
-                          onKeyDown={(e) => handleKeyDown(e, true)}
-                          placeholder="Email body..."
-                          className="text-[13px] leading-relaxed text-muted-foreground bg-transparent border-0 border-b-2 border-amber outline-none w-full p-0 resize-none min-h-[80px]"
-                          style={{ fieldSizing: "content" } as React.CSSProperties}
-                        />
-                        <p className="text-[11px] text-muted-foreground/60">
-                          Variables:{" "}
-                          {VARIABLES.map((v, vi) => (
-                            <span key={vi}>
-                              {vi > 0 && " "}
-                              <code className="text-[10px] bg-muted px-1 py-0.5 rounded font-mono">
-                                {v}
-                              </code>
-                            </span>
-                          ))}
-                        </p>
-                      </div>
+                      <textarea
+                        ref={textareaRef}
+                        value={editBuffer}
+                        onChange={(e) => setEditBuffer(e.target.value)}
+                        onBlur={commitEditing}
+                        onKeyDown={(e) => handleKeyDown(e, true)}
+                        placeholder="Email body..."
+                        className="text-[13px] leading-relaxed text-muted-foreground bg-transparent border-0 border-b-2 border-amber outline-none w-full p-0 resize-none min-h-[80px]"
+                        style={{ fieldSizing: "content" } as React.CSSProperties}
+                      />
                     ) : (
                       <p
                         onClick={() =>
@@ -464,17 +470,18 @@ export function CampaignDetailClient({
                           onChange={(e) => setEditBuffer(e.target.value)}
                           onBlur={commitEditing}
                           onKeyDown={(e) => handleKeyDown(e)}
-                          className="w-10 text-center text-[11px] font-mono tabular-nums font-semibold text-foreground bg-transparent border-0 border-b border-amber outline-none p-0 inline-block"
+                          className="w-8 text-center text-[11px] font-mono tabular-nums font-semibold text-foreground bg-white border border-amber rounded outline-none p-0 inline-block [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
                       ) : (
-                        <span
+                        <button
                           onClick={() =>
                             startEditing({ type: "wait", step: i })
                           }
-                          className="font-mono tabular-nums font-semibold text-foreground cursor-text hover:bg-muted/60 rounded px-1 transition-colors"
+                          className="inline-flex items-center gap-1 font-mono tabular-nums font-semibold text-foreground cursor-text border border-dashed border-muted-foreground/30 rounded bg-white/80 px-1.5 py-px hover:border-amber hover:bg-amber/5 transition-colors"
                         >
                           {step.wait_days ?? 3}
-                        </span>
+                          <Pencil className="h-2 w-2 text-muted-foreground/40" />
+                        </button>
                       )}{" "}
                       {(step.wait_days ?? 3) === 1 ? "day" : "days"}
                     </span>
@@ -494,6 +501,7 @@ export function CampaignDetailClient({
               Add Email {steps.length + 1}
             </Button>
           )}
+
         </div>
 
         {/* Leads */}
@@ -528,47 +536,48 @@ export function CampaignDetailClient({
         </div>
       </div>
 
-      {/* Floating save bar */}
-      <div
-        className={cn(
-          "fixed bottom-0 left-0 lg:left-60 right-0 z-50 transition-all duration-300 ease-out",
-          isDirty
-            ? "translate-y-0 opacity-100"
-            : "translate-y-full opacity-0 pointer-events-none"
-        )}
-      >
-        <div className="border-t border-border bg-background/95 backdrop-blur-sm px-6 py-3">
-          <div className="flex items-center justify-between max-w-screen-xl mx-auto">
-            <p className="text-[13px] text-muted-foreground font-medium">
-              You have unsaved changes
-            </p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                onClick={handleDiscard}
-                disabled={isPending}
-                className="h-8 text-[13px] rounded-lg font-medium"
-              >
-                Discard
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={isPending}
-                className="h-8 text-[13px] rounded-lg font-semibold bg-amber text-white shadow-[0_1px_2px_0_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.15)] hover:bg-amber/85 active:bg-amber/80 active:shadow-none"
-              >
-                {isPending ? (
-                  <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-                ) : null}
-                Save
-              </Button>
-            </div>
+      {/* Spacer when save bar is visible so content isn't hidden behind it */}
+      {isDirty && <div className="h-14" />}
+    </div>
+
+    {/* Floating save bar -- outside space-y-8 to avoid layout interference */}
+    <div
+      className={cn(
+        "fixed bottom-0 left-0 lg:left-60 right-0 z-50 transition-all duration-300 ease-out",
+        isDirty
+          ? "translate-y-0 opacity-100"
+          : "translate-y-full opacity-0 pointer-events-none"
+      )}
+    >
+      <div className="border-t border-border bg-background/95 backdrop-blur-sm px-6 py-3">
+        <div className="flex items-center justify-between max-w-screen-xl mx-auto">
+          <p className="text-[13px] text-muted-foreground font-medium">
+            You have unsaved changes
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={handleDiscard}
+              disabled={isPending}
+              className="h-8 text-[13px] rounded-lg font-medium"
+            >
+              Discard
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={isPending}
+              className="h-8 text-[13px] rounded-lg font-semibold bg-amber text-white shadow-[0_1px_2px_0_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.15)] hover:bg-amber/85 active:bg-amber/80 active:shadow-none"
+            >
+              {isPending ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : null}
+              Save
+            </Button>
           </div>
         </div>
       </div>
-
-      {/* Spacer when save bar is visible so content isn't hidden behind it */}
-      {isDirty && <div className="h-16" />}
     </div>
+    </>
   );
 }
 
