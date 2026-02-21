@@ -1,0 +1,312 @@
+import { Campaign, Lead, SenderInbox, CampaignStats, InboxStats } from "./types";
+
+export const mockCampaigns: Campaign[] = [
+  {
+    id: "c1",
+    name: "Feb 2026 - Construction Ops",
+    email_1_subject: "Quick note on {{Company}}",
+    email_1_body: `Hi {{First Name}}, I noticed you're the {{Title}} at {{Company}}.
+
+We've been helping construction companies reduce timesheet errors by 40% with automated field data capture -- no more manual entry from the jobsite.
+
+Would it be worth a 15-minute call to see if we'd be a fit?
+
+Best,
+Brett`,
+    wait_after_email_1: 3,
+    email_2_subject: "Re: Quick note on {{Company}}",
+    email_2_body: `Hi {{First Name}}, wanted to follow up on my last note.
+
+Quick question -- is tracking crew hours still a manual process at {{Company}}? We've helped teams cut admin overhead significantly and keep project timelines tighter.
+
+Happy to show you a quick demo if curious.
+
+Brett`,
+    wait_after_email_2: 4,
+    email_3_subject: "Re: Quick note on {{Company}}",
+    email_3_body: `Hi {{First Name}}, last note from me -- I know inboxes get busy.
+
+If tracking field labor data ever becomes a priority at {{Company}}, I'd love to connect. Feel free to grab 15 minutes here: [calendar link]
+
+Best,
+Brett`,
+    wait_after_email_3: null,
+    email_4_subject: null,
+    email_4_body: null,
+    wait_after_email_4: null,
+    email_5_subject: null,
+    email_5_body: null,
+    created_at: "2026-02-18T00:00:00Z",
+    updated_at: "2026-02-18T00:00:00Z",
+  },
+  {
+    id: "c2",
+    name: "Podcast Outreach - Events",
+    email_1_subject: "Loved your talk at {{Event}}",
+    email_1_body: `Hi {{First Name}},
+
+I caught your session at {{Event}} and thought the insights on field operations were spot on. We're producing a podcast series on construction innovation and would love to feature your perspective.
+
+Would you be open to a 30-minute recorded conversation?
+
+Best,
+Brett`,
+    wait_after_email_1: 5,
+    email_2_subject: "Re: Loved your talk at {{Event}}",
+    email_2_body: `Hi {{First Name}}, just wanted to bump this up.
+
+We've had great conversations with folks like {{Similar Guest}} and I think your experience at {{Company}} would resonate with our audience.
+
+Let me know if you'd be open to it.
+
+Brett`,
+    wait_after_email_2: null,
+    email_3_subject: null,
+    email_3_body: null,
+    wait_after_email_3: null,
+    email_4_subject: null,
+    email_4_body: null,
+    wait_after_email_4: null,
+    email_5_subject: null,
+    email_5_body: null,
+    created_at: "2026-02-15T00:00:00Z",
+    updated_at: "2026-02-15T00:00:00Z",
+  },
+];
+
+export const mockSenderInboxes: SenderInbox[] = [
+  {
+    id: "s1",
+    email: "bcataldo@rhumbix.com",
+    display_name: "B. Cataldo",
+    lindy_webhook_url: "https://public.lindy.ai/api/v1/webhooks/inbox-1",
+    lindy_webhook_secret: null,
+    daily_limit: 80,
+    hourly_limit: 10,
+    is_active: true,
+    created_at: "2026-02-10T00:00:00Z",
+  },
+  {
+    id: "s2",
+    email: "brett@rhumbix.com",
+    display_name: "Brett",
+    lindy_webhook_url: "https://public.lindy.ai/api/v1/webhooks/inbox-2",
+    lindy_webhook_secret: null,
+    daily_limit: 80,
+    hourly_limit: 10,
+    is_active: true,
+    created_at: "2026-02-10T00:00:00Z",
+  },
+  {
+    id: "s3",
+    email: "dgabriel@rhumbix.com",
+    display_name: "D. Gabriel",
+    lindy_webhook_url: "https://public.lindy.ai/api/v1/webhooks/inbox-3",
+    lindy_webhook_secret: null,
+    daily_limit: 80,
+    hourly_limit: 10,
+    is_active: true,
+    created_at: "2026-02-10T00:00:00Z",
+  },
+];
+
+export const mockLeads: Lead[] = [
+  {
+    id: "l1",
+    first_name: "Jamie",
+    last_name: "Chen",
+    email: "jamie.chen@constructco.com",
+    company: "ConstructCo",
+    title: "VP of Operations",
+    campaign_id: "c1",
+    campaign_name: "Feb 2026 - Construction Ops",
+    sender_inbox_id: "s1",
+    sender_email: "bcataldo@rhumbix.com",
+    status: "email_2_sent",
+    contacted_at: "2026-02-18T09:00:00Z",
+    response_received: false,
+    next_send_date: null,
+    created_at: "2026-02-17T00:00:00Z",
+    updated_at: "2026-02-20T00:00:00Z",
+  },
+  {
+    id: "l2",
+    first_name: "Mike",
+    last_name: "Torres",
+    email: "m.torres@buildersco.com",
+    company: "BuildersCo",
+    title: "Site Manager",
+    campaign_id: "c1",
+    campaign_name: "Feb 2026 - Construction Ops",
+    sender_inbox_id: "s2",
+    sender_email: "brett@rhumbix.com",
+    status: "email_1_sent",
+    contacted_at: "2026-02-19T10:00:00Z",
+    response_received: false,
+    next_send_date: null,
+    created_at: "2026-02-17T00:00:00Z",
+    updated_at: "2026-02-19T10:00:00Z",
+  },
+  {
+    id: "l3",
+    first_name: "Sara",
+    last_name: "Kim",
+    email: "sara.kim@megabuild.io",
+    company: "MegaBuild",
+    title: "Director of Field Operations",
+    campaign_id: "c1",
+    campaign_name: "Feb 2026 - Construction Ops",
+    sender_inbox_id: "s3",
+    sender_email: "dgabriel@rhumbix.com",
+    status: "completed",
+    contacted_at: "2026-02-15T09:00:00Z",
+    response_received: true,
+    next_send_date: null,
+    created_at: "2026-02-14T00:00:00Z",
+    updated_at: "2026-02-20T00:00:00Z",
+  },
+  {
+    id: "l4",
+    first_name: "David",
+    last_name: "Park",
+    email: "dpark@steelbridge.com",
+    company: "Steel Bridge Construction",
+    title: "COO",
+    campaign_id: "c1",
+    campaign_name: "Feb 2026 - Construction Ops",
+    sender_inbox_id: "s1",
+    sender_email: "bcataldo@rhumbix.com",
+    status: "pending",
+    contacted_at: null,
+    response_received: false,
+    next_send_date: null,
+    created_at: "2026-02-20T00:00:00Z",
+    updated_at: "2026-02-20T00:00:00Z",
+  },
+  {
+    id: "l5",
+    first_name: "Lisa",
+    last_name: "Rodriguez",
+    email: "lisa.r@precisionbuild.net",
+    company: "Precision Build",
+    title: "Operations Manager",
+    campaign_id: "c1",
+    campaign_name: "Feb 2026 - Construction Ops",
+    sender_inbox_id: "s2",
+    sender_email: "brett@rhumbix.com",
+    status: "pending",
+    contacted_at: null,
+    response_received: false,
+    next_send_date: null,
+    created_at: "2026-02-20T00:00:00Z",
+    updated_at: "2026-02-20T00:00:00Z",
+  },
+  {
+    id: "l6",
+    first_name: "Tom",
+    last_name: "Harris",
+    email: "tom@harriseng.com",
+    company: "Harris Engineering",
+    title: "Project Director",
+    campaign_id: "c2",
+    campaign_name: "Podcast Outreach - Events",
+    sender_inbox_id: "s3",
+    sender_email: "dgabriel@rhumbix.com",
+    status: "email_1_sent",
+    contacted_at: "2026-02-19T14:00:00Z",
+    response_received: false,
+    next_send_date: null,
+    created_at: "2026-02-18T00:00:00Z",
+    updated_at: "2026-02-19T14:00:00Z",
+  },
+  {
+    id: "l7",
+    first_name: "Rachel",
+    last_name: "Martinez",
+    email: "rmartinez@foundationworks.com",
+    company: "Foundation Works",
+    title: "VP Engineering",
+    campaign_id: "c2",
+    campaign_name: "Podcast Outreach - Events",
+    sender_inbox_id: "s1",
+    sender_email: "bcataldo@rhumbix.com",
+    status: "pending",
+    contacted_at: null,
+    response_received: false,
+    next_send_date: null,
+    created_at: "2026-02-20T00:00:00Z",
+    updated_at: "2026-02-20T00:00:00Z",
+  },
+  {
+    id: "l8",
+    first_name: "James",
+    last_name: "Wilson",
+    email: "jwilson@apexconstruction.com",
+    company: "Apex Construction",
+    title: "General Manager",
+    campaign_id: "c1",
+    campaign_name: "Feb 2026 - Construction Ops",
+    sender_inbox_id: "s3",
+    sender_email: "dgabriel@rhumbix.com",
+    status: "pending",
+    contacted_at: null,
+    response_received: false,
+    next_send_date: null,
+    created_at: "2026-02-20T00:00:00Z",
+    updated_at: "2026-02-20T00:00:00Z",
+  },
+];
+
+export const mockCampaignStats: CampaignStats[] = [
+  {
+    id: "c1",
+    name: "Feb 2026 - Construction Ops",
+    total_leads: 6,
+    pending: 3,
+    in_progress: 2,
+    completed: 1,
+    responded: 1,
+  },
+  {
+    id: "c2",
+    name: "Podcast Outreach - Events",
+    total_leads: 2,
+    pending: 1,
+    in_progress: 1,
+    completed: 0,
+    responded: 0,
+  },
+];
+
+export const mockInboxStats: InboxStats[] = [
+  {
+    id: "s1",
+    email: "bcataldo@rhumbix.com",
+    display_name: "B. Cataldo",
+    sent_today: 23,
+    sent_this_hour: 7,
+    daily_limit: 80,
+    hourly_limit: 10,
+    is_active: true,
+  },
+  {
+    id: "s2",
+    email: "brett@rhumbix.com",
+    display_name: "Brett",
+    sent_today: 18,
+    sent_this_hour: 4,
+    daily_limit: 80,
+    hourly_limit: 10,
+    is_active: true,
+  },
+  {
+    id: "s3",
+    email: "dgabriel@rhumbix.com",
+    display_name: "D. Gabriel",
+    sent_today: 31,
+    sent_this_hour: 9,
+    daily_limit: 80,
+    hourly_limit: 10,
+    is_active: true,
+  },
+];

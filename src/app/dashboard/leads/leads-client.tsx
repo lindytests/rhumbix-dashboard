@@ -1,0 +1,342 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Plus, Upload, Search, Trash2, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { deleteLeads } from "@/lib/actions/leads";
+import { toast } from "sonner";
+import type { Lead, Campaign } from "@/lib/types";
+
+const statusLabels: Record<string, string> = {
+  pending: "Pending",
+  email_1_sent: "Sent Email 1",
+  email_2_sent: "Sent Email 2",
+  email_3_sent: "Sent Email 3",
+  email_4_sent: "Sent Email 4",
+  email_5_sent: "Sent Email 5",
+  completed: "Done",
+  failed: "Failed",
+};
+
+const statusStyles: Record<string, string> = {
+  pending: "bg-muted text-muted-foreground",
+  email_1_sent: "bg-blue-50 text-blue-700 border-blue-100",
+  email_2_sent: "bg-blue-50 text-blue-700 border-blue-100",
+  email_3_sent: "bg-blue-50 text-blue-700 border-blue-100",
+  email_4_sent: "bg-blue-50 text-blue-700 border-blue-100",
+  email_5_sent: "bg-blue-50 text-blue-700 border-blue-100",
+  completed: "bg-emerald-50 text-emerald-700 border-emerald-100",
+  failed: "bg-red-50 text-red-700 border-red-100",
+};
+
+interface LeadsClientProps {
+  leads: Lead[];
+  campaigns: Campaign[];
+  autoSendEnabled: boolean;
+}
+
+export default function LeadsClient({ leads, campaigns, autoSendEnabled }: LeadsClientProps) {
+  const [search, setSearch] = useState("");
+  const [campaignFilter, setCampaignFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [isPending, startTransition] = useTransition();
+
+  const filteredLeads = leads.filter((lead) => {
+    const matchesSearch =
+      search === "" ||
+      (lead.first_name + " " + lead.last_name + " " + lead.email + " " + lead.company)
+        .toLowerCase()
+        .includes(search.toLowerCase());
+    const matchesCampaign =
+      campaignFilter === "all" || lead.campaign_id === campaignFilter;
+    const matchesStatus =
+      statusFilter === "all" || lead.status === statusFilter;
+    return matchesSearch && matchesCampaign && matchesStatus;
+  });
+
+  const toggleOne = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selected.size === filteredLeads.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(filteredLeads.map((l) => l.id)));
+    }
+  };
+
+  const handleDelete = () => {
+    const count = selected.size;
+    startTransition(async () => {
+      await deleteLeads(Array.from(selected));
+      setSelected(new Set());
+      toast.success(`${count} lead${count === 1 ? "" : "s"} deleted`);
+    });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold font-heading tracking-[-0.02em]">
+            Leads
+          </h1>
+          <p className="text-[14px] text-muted-foreground mt-1">
+            {leads.length} total leads across {campaigns.length} campaigns
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" asChild className="h-9 text-[13px] rounded-lg font-medium">
+            <Link href="/dashboard/leads/import">
+              <Upload className="h-4 w-4 mr-1.5" />
+              Import CSV
+            </Link>
+          </Button>
+          <Button
+            asChild
+            className="bg-amber text-amber-foreground hover:bg-amber/90 h-9 text-[13px] font-semibold rounded-lg"
+          >
+            <Link href="/dashboard/leads/new">
+              <Plus className="h-4 w-4 mr-1.5" />
+              Add Lead
+            </Link>
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[180px] max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search leads..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-9 pl-9 text-[13px] rounded-lg"
+          />
+        </div>
+        <Select value={campaignFilter} onValueChange={setCampaignFilter}>
+          <SelectTrigger className="h-9 w-44 sm:w-52 text-[13px] rounded-lg">
+            <SelectValue placeholder="All campaigns" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All campaigns</SelectItem>
+            {campaigns.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="h-9 w-36 text-[13px] rounded-lg">
+            <SelectValue placeholder="All statuses" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All statuses</SelectItem>
+            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="email_1_sent">Email 1 Sent</SelectItem>
+            <SelectItem value="email_2_sent">Email 2 Sent</SelectItem>
+            <SelectItem value="email_3_sent">Email 3 Sent</SelectItem>
+            <SelectItem value="completed">Completed</SelectItem>
+            <SelectItem value="failed">Failed</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-[12px] text-muted-foreground font-mono tabular-nums">
+          {filteredLeads.length} result{filteredLeads.length !== 1 ? "s" : ""}
+        </span>
+        {selected.size > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDelete}
+            disabled={isPending}
+            className="h-8 text-[12px] font-medium rounded-lg text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 gap-1.5"
+          >
+            {isPending ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Trash2 className="h-3.5 w-3.5" />
+            )}
+            Delete {selected.size}
+          </Button>
+        )}
+      </div>
+
+      <Card className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="overflow-x-auto">
+        <Table className="min-w-[800px]">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent border-b border-border">
+              <TableHead className="w-10 pl-4 pr-0">
+                <input
+                  type="checkbox"
+                  checked={filteredLeads.length > 0 && selected.size === filteredLeads.length}
+                  onChange={toggleAll}
+                  className="h-3.5 w-3.5 rounded border-border accent-amber cursor-pointer"
+                />
+              </TableHead>
+              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
+                Contact
+              </TableHead>
+              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
+                Company
+              </TableHead>
+              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
+                Campaign
+              </TableHead>
+              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
+                Sender
+              </TableHead>
+              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
+                Status
+              </TableHead>
+              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
+                Started
+              </TableHead>
+              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-right text-muted-foreground pr-5">
+                Next Send
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredLeads.map((lead) => (
+              <TableRow
+                key={lead.id}
+                className={cn(
+                  "hover:bg-muted/40 transition-colors",
+                  selected.has(lead.id) && "bg-amber/5"
+                )}
+              >
+                <TableCell className="py-2.5 pl-4 pr-0">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(lead.id)}
+                    onChange={() => toggleOne(lead.id)}
+                    className="h-3.5 w-3.5 rounded border-border accent-amber cursor-pointer"
+                  />
+                </TableCell>
+                <TableCell className="py-2.5">
+                  <div>
+                    <p className="text-[13px] font-semibold">
+                      {lead.first_name} {lead.last_name}
+                    </p>
+                    <p className="text-[12px] text-muted-foreground">
+                      {lead.email}
+                    </p>
+                  </div>
+                </TableCell>
+                <TableCell className="py-2.5">
+                  <div>
+                    <p className="text-[13px]">{lead.company}</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {lead.title}
+                    </p>
+                  </div>
+                </TableCell>
+                <TableCell className="py-2.5">
+                  <span className="text-[13px]">{lead.campaign_name}</span>
+                </TableCell>
+                <TableCell className="py-2.5">
+                  <span className="text-[12px] text-muted-foreground font-mono">
+                    {lead.sender_email || "Unassigned"}
+                  </span>
+                </TableCell>
+                <TableCell className="py-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <Badge
+                      variant="outline"
+                      className={cn("text-[11px] font-medium", statusStyles[lead.status] || "")}
+                    >
+                      {statusLabels[lead.status] || lead.status}
+                    </Badge>
+                    {lead.response_received && (
+                      <Badge className="bg-amber/15 text-amber-foreground border-amber/20 text-[11px]">
+                        Replied
+                      </Badge>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell className="py-2.5">
+                  <span className="text-[12px] text-muted-foreground tabular-nums font-mono">
+                    {lead.contacted_at
+                      ? new Date(lead.contacted_at).toLocaleDateString(
+                          "en-US",
+                          { month: "short", day: "numeric" }
+                        )
+                      : "--"}
+                  </span>
+                </TableCell>
+                <TableCell className="py-2.5 text-right pr-5">
+                  <span className="text-[12px] tabular-nums font-mono">
+                    {lead.next_send_date ? (() => {
+                      if (!autoSendEnabled) {
+                        return (
+                          <span className="text-amber font-medium">Ready</span>
+                        );
+                      }
+                      const d = new Date(lead.next_send_date);
+                      const today = new Date();
+                      const isToday =
+                        d.getFullYear() === today.getFullYear() &&
+                        d.getMonth() === today.getMonth() &&
+                        d.getDate() === today.getDate();
+                      return isToday ? (
+                        <span className="text-amber font-medium">Today</span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          {d.toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </span>
+                      );
+                    })() : (
+                      <span className="text-muted-foreground">--</span>
+                    )}
+                  </span>
+                </TableCell>
+              </TableRow>
+            ))}
+            {filteredLeads.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={8} className="text-center py-16">
+                  <p className="text-[14px] text-muted-foreground">
+                    No leads found
+                  </p>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+        </div>
+      </Card>
+    </div>
+  );
+}
