@@ -6,14 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Settings2,
-  ToggleLeft,
-  ToggleRight,
   Clock,
   FlaskConical,
 } from "lucide-react";
 import { toggleAutoSend, toggleTestMode } from "@/lib/actions/sending";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 interface SettingsClientProps {
   autoSendEnabled: boolean;
@@ -41,7 +40,7 @@ export default function SettingsClient({
         <h2 className="text-[17px] font-semibold font-heading">
           Automatic Sending
         </h2>
-        <Card className="bg-card rounded-2xl border border-border">
+        <Card className="bg-card rounded-xl border border-border">
           <CardContent className="p-5">
             <div className="flex items-center gap-4">
               <div
@@ -65,28 +64,20 @@ export default function SettingsClient({
                   Batch sends every hour during business hours, respecting per-inbox rate limits.
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 rounded-lg"
+              <Switch
+                checked={autoSendEnabled}
                 disabled={isPending}
-                onClick={() => {
+                onCheckedChange={(val) => {
                   startTransition(async () => {
-                    await toggleAutoSend(!autoSendEnabled);
+                    await toggleAutoSend(val);
                     toast.success(
-                      autoSendEnabled
-                        ? "Automatic sending disabled"
-                        : "Automatic sending enabled"
+                      val
+                        ? "Automatic sending enabled"
+                        : "Automatic sending disabled"
                     );
                   });
                 }}
-              >
-                {autoSendEnabled ? (
-                  <ToggleRight className="h-6 w-6 text-amber" />
-                ) : (
-                  <ToggleLeft className="h-6 w-6 text-muted-foreground" />
-                )}
-              </Button>
+              />
             </div>
           </CardContent>
         </Card>
@@ -96,7 +87,7 @@ export default function SettingsClient({
         <h2 className="text-[17px] font-semibold font-heading">
           Delivery Mode
         </h2>
-        <Card className="bg-card rounded-2xl border border-border">
+        <Card className="bg-card rounded-xl border border-border">
           <CardContent className="p-5">
             <div className="flex items-center gap-4">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber/10">
@@ -123,7 +114,7 @@ export default function SettingsClient({
         <h2 className="text-[17px] font-semibold font-heading">Developer</h2>
         <Card
           className={cn(
-            "rounded-2xl border-dashed",
+            "rounded-xl border-dashed",
             testMode
               ? "border-orange-400 bg-orange-50/50 dark:bg-orange-950/20"
               : "border-border bg-card"
@@ -155,26 +146,19 @@ export default function SettingsClient({
                   days&quot; campaign step becomes 3 minutes.
                 </p>
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 px-2 rounded-lg"
+              <Switch
+                checked={testMode}
                 disabled={isPending}
-                onClick={() => {
+                activeClass="bg-orange-500"
+                onCheckedChange={(val) => {
                   startTransition(async () => {
-                    await toggleTestMode(!testMode);
+                    await toggleTestMode(val);
                     toast.success(
-                      testMode ? "Test mode disabled" : "Test mode enabled"
+                      val ? "Test mode enabled" : "Test mode disabled"
                     );
                   });
                 }}
-              >
-                {testMode ? (
-                  <ToggleRight className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-                ) : (
-                  <ToggleLeft className="h-6 w-6 text-muted-foreground" />
-                )}
-              </Button>
+              />
             </div>
           </CardContent>
         </Card>

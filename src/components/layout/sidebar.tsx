@@ -105,7 +105,7 @@ export function Sidebar() {
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-4 py-2.5 text-[14px] tracking-[-0.02em] transition-all duration-150",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold border-l-2 border-amber"
+                    ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold border border-sidebar-primary/15 shadow-[0_1px_3px_0_rgba(0,0,0,0.04)]"
                     : "text-sidebar-foreground hover:bg-muted/80 hover:text-foreground font-medium"
                 )}
               >

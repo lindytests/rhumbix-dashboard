@@ -25,7 +25,7 @@ export function EmailStepEditor({
   onRemove,
 }: EmailStepEditorProps) {
   return (
-    <div className="rounded-2xl border border-border bg-card overflow-hidden">
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
       <div className="flex items-center justify-between border-b border-border px-6 py-3.5 bg-muted/30">
         <div className="flex items-center gap-2.5">
           <GripVertical className="h-4 w-4 text-muted-foreground/30 cursor-grab" />

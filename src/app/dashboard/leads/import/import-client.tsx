@@ -256,13 +256,13 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
 
       {step === "upload" && (
         <Card
-          className="border-2 border-dashed border-border hover:border-amber/40 transition-colors cursor-pointer rounded-2xl"
+          className="border-2 border-dashed border-border hover:border-amber/40 transition-colors cursor-pointer rounded-xl"
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
         >
           <CardContent className="p-10 sm:p-20 text-center">
             <div className="flex flex-col items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-muted">
                 <FileSpreadsheet className="h-8 w-8 text-muted-foreground" />
               </div>
               <div>
@@ -289,7 +289,7 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
 
       {step === "mapping" && (
         <div className="space-y-5">
-          <Card className="bg-card rounded-2xl border border-border">
+          <Card className="bg-card rounded-xl border border-border">
             <CardContent className="p-6 space-y-6">
               <div>
                 <h2 className="text-[15px] font-semibold font-heading mb-2">
@@ -386,7 +386,7 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
           </div>
 
           {errors.length > 0 && (
-            <Card className="border border-red-100 bg-red-50/50 rounded-2xl">
+            <Card className="border border-red-100 bg-red-50/50 rounded-xl">
               <CardContent className="p-5">
                 <p className="text-[12px] font-semibold text-red-700 mb-1.5">
                   Errors (these rows will be skipped):
@@ -401,7 +401,7 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
             </Card>
           )}
 
-          <Card className="bg-card rounded-2xl border border-border overflow-hidden">
+          <Card className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="overflow-x-auto">
             <Table className="min-w-[600px]">
               <TableHeader>
@@ -452,10 +452,10 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
       )}
 
       {step === "done" && (
-        <Card className="bg-card rounded-2xl border border-border">
+        <Card className="bg-card rounded-xl border border-border">
           <CardContent className="p-10 sm:p-20 text-center">
             <div className="flex flex-col items-center gap-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-50">
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-emerald-50">
                 <Check className="h-8 w-8 text-emerald-600" />
               </div>
               <div>

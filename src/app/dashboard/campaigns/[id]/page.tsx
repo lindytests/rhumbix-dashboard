@@ -107,7 +107,7 @@ export default async function CampaignDetailPage({
             { label: "In Progress", value: stats.in_progress },
             { label: "Replied", value: stats.responded, highlight: true },
           ].map((item) => (
-            <Card key={item.label} className="bg-card rounded-2xl border border-border">
+            <Card key={item.label} className="bg-card rounded-xl border border-border">
               <CardContent className="p-5">
                 <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                   {item.label}
@@ -133,7 +133,7 @@ export default async function CampaignDetailPage({
             Email Sequence
           </h2>
           {emailSteps.map((step, i) => (
-            <Card key={i} className="bg-card rounded-2xl border border-border">
+            <Card key={i} className="bg-card rounded-xl border border-border">
               <CardContent className="p-6">
                 <div className="flex items-center gap-2.5 mb-2.5">
                   <div className="flex items-center gap-1.5 rounded-lg bg-muted px-3 py-1.5">

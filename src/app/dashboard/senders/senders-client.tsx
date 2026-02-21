@@ -16,11 +16,10 @@ import {
 import {
   Plus,
   Inbox,
-  ToggleLeft,
-  ToggleRight,
   Pencil,
   Loader2,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import {
   createInbox,
   updateInbox,
@@ -216,7 +215,7 @@ export default function SendersClient({
             <Card
               key={inbox.id}
               className={cn(
-                "bg-card rounded-2xl border border-border transition-opacity",
+                "bg-card rounded-xl border border-border transition-opacity",
                 !inbox.is_active && "opacity-50"
               )}
             >
@@ -250,13 +249,10 @@ export default function SendersClient({
                     <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={() => openEditDialog(inbox)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={() => handleToggle(inbox.id, inbox.is_active)}>
-                      {inbox.is_active ? (
-                        <ToggleRight className="h-5 w-5 text-amber" />
-                      ) : (
-                        <ToggleLeft className="h-5 w-5 text-muted-foreground" />
-                      )}
-                    </Button>
+                    <Switch
+                      checked={inbox.is_active}
+                      onCheckedChange={() => handleToggle(inbox.id, inbox.is_active)}
+                    />
                   </div>
                 </div>
 
@@ -290,7 +286,7 @@ export default function SendersClient({
         })}
 
         {inboxes.length === 0 && (
-          <Card className="bg-card rounded-2xl border border-border">
+          <Card className="bg-card rounded-xl border border-border">
             <CardContent className="p-16 text-center">
               <p className="text-[14px] text-muted-foreground">
                 No sender inboxes configured

@@ -79,7 +79,7 @@ export default function NewLeadClient({ campaigns }: NewLeadClientProps) {
         </Button>
       </div>
 
-      <Card className="bg-card rounded-2xl border border-border">
+      <Card className="bg-card rounded-xl border border-border">
         <CardContent className="p-6 space-y-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

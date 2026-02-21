@@ -88,7 +88,7 @@ export default async function DashboardPage() {
           { label: "Completed", value: totalCompleted },
           { label: "Responded", value: totalResponded, highlight: true },
         ].map((stat) => (
-          <Card key={stat.label} className="bg-card rounded-2xl border border-border">
+          <Card key={stat.label} className="bg-card rounded-xl border border-border">
             <CardContent className="p-5">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {stat.label}
@@ -108,7 +108,7 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Inbox capacity */}
-        <Card className="col-span-1 bg-card rounded-2xl border border-border">
+        <Card className="col-span-1 bg-card rounded-xl border border-border">
           <CardContent className="p-6">
             <h2 className="text-[17px] font-semibold font-heading mb-4">
               Inbox Capacity
@@ -153,7 +153,7 @@ export default async function DashboardPage() {
         </Card>
 
         {/* Campaigns */}
-        <Card className="lg:col-span-2 bg-card rounded-2xl border border-border">
+        <Card className="lg:col-span-2 bg-card rounded-xl border border-border">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[17px] font-semibold font-heading">
@@ -202,7 +202,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Recent activity */}
-      <Card className="bg-card rounded-2xl border border-border">
+      <Card className="bg-card rounded-xl border border-border">
         <CardContent className="p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-[17px] font-semibold font-heading">

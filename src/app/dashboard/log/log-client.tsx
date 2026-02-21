@@ -170,7 +170,7 @@ export default function LogClient({ logs, campaigns }: LogClientProps) {
         </span>
       </div>
 
-      <Card className="bg-card rounded-2xl border border-border overflow-hidden">
+      <Card className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <Table className="min-w-[800px]">
             <TableHeader>

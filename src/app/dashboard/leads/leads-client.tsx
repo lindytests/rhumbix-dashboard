@@ -21,9 +21,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Upload, Search, Trash2, Loader2 } from "lucide-react";
+import { Plus, Upload, Search, Trash2, Loader2, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { deleteLeads } from "@/lib/actions/leads";
+import { sendSingleLead } from "@/lib/actions/sending";
 import { toast } from "sonner";
 import type { Lead, Campaign } from "@/lib/types";
 
@@ -61,6 +62,7 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
+  const [sendingLeads, setSendingLeads] = useState<Set<string>>(new Set());
 
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch =
@@ -99,6 +101,32 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
       setSelected(new Set());
       toast.success(`${count} lead${count === 1 ? "" : "s"} deleted`);
     });
+  };
+
+  const isSendable = (lead: Lead) =>
+    lead.sender_inbox_id &&
+    !lead.response_received &&
+    lead.status !== "completed" &&
+    lead.status !== "failed";
+
+  const handleSend = async (leadId: string) => {
+    setSendingLeads((prev) => new Set(prev).add(leadId));
+    try {
+      const result = await sendSingleLead(leadId);
+      if (result.success) {
+        toast.success("Email sent");
+      } else {
+        toast.error(result.error || "Failed to send");
+      }
+    } catch {
+      toast.error("Failed to send");
+    } finally {
+      setSendingLeads((prev) => {
+        const next = new Set(prev);
+        next.delete(leadId);
+        return next;
+      });
+    }
   };
 
   return (
@@ -189,7 +217,7 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
         )}
       </div>
 
-      <Card className="bg-card rounded-2xl border border-border overflow-hidden">
+      <Card className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="overflow-x-auto">
         <Table className="min-w-[800px]">
           <TableHeader>
@@ -294,33 +322,49 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
                   </span>
                 </TableCell>
                 <TableCell className="py-2.5 text-right pr-5">
-                  <span className="text-[12px] tabular-nums font-mono">
-                    {lead.next_send_date ? (() => {
-                      if (!autoSendEnabled) {
-                        return (
-                          <span className="text-amber font-medium">Ready</span>
-                        );
-                      }
-                      const d = new Date(lead.next_send_date);
-                      const today = new Date();
-                      const isToday =
-                        d.getFullYear() === today.getFullYear() &&
-                        d.getMonth() === today.getMonth() &&
-                        d.getDate() === today.getDate();
-                      return isToday ? (
-                        <span className="text-amber font-medium">Today</span>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          {d.toLocaleDateString("en-US", {
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </span>
-                      );
-                    })() : (
-                      <span className="text-muted-foreground">--</span>
+                  <div className="flex items-center justify-end gap-2">
+                    {isSendable(lead) && (
+                      <button
+                        onClick={() => handleSend(lead.id)}
+                        disabled={sendingLeads.has(lead.id)}
+                        className="inline-flex items-center justify-center h-6 w-6 rounded-md hover:bg-amber/10 text-muted-foreground hover:text-amber transition-colors disabled:opacity-50"
+                        title="Send now"
+                      >
+                        {sendingLeads.has(lead.id) ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Send className="h-3.5 w-3.5" />
+                        )}
+                      </button>
                     )}
-                  </span>
+                    <span className="text-[12px] tabular-nums font-mono">
+                      {lead.next_send_date ? (() => {
+                        if (!autoSendEnabled) {
+                          return (
+                            <span className="text-amber font-medium">Ready</span>
+                          );
+                        }
+                        const d = new Date(lead.next_send_date);
+                        const today = new Date();
+                        const isToday =
+                          d.getFullYear() === today.getFullYear() &&
+                          d.getMonth() === today.getMonth() &&
+                          d.getDate() === today.getDate();
+                        return isToday ? (
+                          <span className="text-amber font-medium">Today</span>
+                        ) : (
+                          <span className="text-muted-foreground">
+                            {d.toLocaleDateString("en-US", {
+                              month: "short",
+                              day: "numeric",
+                            })}
+                          </span>
+                        );
+                      })() : (
+                        <span className="text-muted-foreground">--</span>
+                      )}
+                    </span>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

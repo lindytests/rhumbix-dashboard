@@ -128,7 +128,7 @@ export function CampaignForm({ campaign }: CampaignFormProps) {
         </Button>
       </div>
 
-      <Card className="bg-card rounded-2xl border border-border">
+      <Card className="bg-card rounded-xl border border-border">
         <CardContent className="p-6">
           <div className="space-y-2">
             <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
