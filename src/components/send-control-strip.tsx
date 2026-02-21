@@ -139,7 +139,7 @@ export function SendControlStrip({
       </Tooltip>
 
       {lastResult && lastResult.sent > 0 && (
-        <span className="text-[12px] text-emerald-600 font-medium">
+        <span className="text-[12px] text-emerald-600 font-medium animate-fade-in">
           {lastResult.sent} sent
           {lastResult.errors > 0 && (
             <span className="text-red-500 ml-1.5">

@@ -314,7 +314,7 @@ export function CampaignDetailClient({
 
       {/* Stats */}
       {stats && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-5 stagger-children">
           {[
             { label: "Total Leads", value: stats.total_leads },
             { label: "Pending", value: stats.pending },
@@ -376,7 +376,7 @@ export function CampaignDetailClient({
           </div>
 
           {steps.map((step, i) => (
-            <div key={i}>
+            <div key={i} className="animate-fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
               <Card className="bg-card rounded-xl border border-border overflow-hidden group">
                 <div className="flex items-center justify-between border-b border-border px-5 py-2.5 bg-muted/30">
                   <span className="text-[13px] font-semibold text-foreground">
@@ -515,7 +515,7 @@ export function CampaignDetailClient({
               View all
             </Link>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2 stagger-children">
             {campaignLeads.map((lead) => (
               <div
                 key={lead.id}

@@ -441,7 +441,7 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
             {filteredLeads.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-16">
-                  <p className="text-[14px] text-muted-foreground">
+                  <p className="text-[14px] text-muted-foreground animate-fade-in">
                     No leads found
                   </p>
                 </TableCell>

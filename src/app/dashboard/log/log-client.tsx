@@ -257,7 +257,7 @@ export default function LogClient({ logs, campaigns }: LogClientProps) {
               {filteredLogs.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-16">
-                    <p className="text-[14px] text-muted-foreground">
+                    <p className="text-[14px] text-muted-foreground animate-fade-in">
                       No send logs found
                     </p>
                   </TableCell>

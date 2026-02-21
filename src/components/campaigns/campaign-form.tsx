@@ -142,7 +142,7 @@ export function CampaignForm() {
         </div>
 
         {steps.map((step, i) => (
-          <div key={i}>
+          <div key={i} className="animate-fade-in-up" style={{ animationDelay: `${i * 60}ms` }}>
             <Card className="bg-card rounded-xl border border-border overflow-hidden group">
               <div className="flex items-center justify-between border-b border-border px-5 py-2.5 bg-muted/30">
                 <span className="text-[13px] font-semibold text-foreground">

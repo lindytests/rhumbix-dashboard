@@ -80,7 +80,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 stagger-children">
         {[
           { label: "Sent Today", value: totalSentToday },
           { label: "Pending", value: totalPending },
@@ -88,7 +88,7 @@ export default async function DashboardPage() {
           { label: "Completed", value: totalCompleted },
           { label: "Responded", value: totalResponded, highlight: true },
         ].map((stat) => (
-          <Card key={stat.label} className="bg-card rounded-xl border border-border">
+          <Card key={stat.label} className="bg-card rounded-xl border border-border hover:border-amber/20 hover:shadow-sm">
             <CardContent className="p-5">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {stat.label}
@@ -166,12 +166,12 @@ export default async function DashboardPage() {
                 View all <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-3 stagger-children">
               {campaignStats.map((campaign) => (
                 <Link
                   key={campaign.id}
                   href={"/dashboard/campaigns/" + campaign.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-border p-4 hover:bg-muted/50 transition-all duration-150"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-border p-4 hover:border-amber/15 hover:shadow-sm transition-[border-color,box-shadow,background-color] duration-200"
                 >
                   <div>
                     <p className="text-[15px] font-semibold font-heading">
@@ -217,7 +217,7 @@ export default async function DashboardPage() {
           </div>
           <div>
             {recentLogs.length === 0 && (
-              <p className="text-[14px] text-muted-foreground text-center py-8">
+              <p className="text-[14px] text-muted-foreground text-center py-8 animate-fade-in">
                 No send activity yet
               </p>
             )}

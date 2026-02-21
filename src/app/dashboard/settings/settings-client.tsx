@@ -26,7 +26,7 @@ export default function SettingsClient({
   const [isPending, startTransition] = useTransition();
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-10 stagger-children">
       <div>
         <h1 className="text-2xl font-semibold font-heading tracking-[-0.02em]">
           Settings

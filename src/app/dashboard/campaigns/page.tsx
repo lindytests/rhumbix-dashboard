@@ -46,7 +46,7 @@ export default async function CampaignsPage() {
         </Button>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 stagger-children">
         {allCampaigns.map((campaign) => {
           const campaignStats = stats.find((s) => s.id === campaign.id);
           const emailCount = getSequenceLength(campaign);
@@ -56,7 +56,7 @@ export default async function CampaignsPage() {
               key={campaign.id}
               href={"/dashboard/campaigns/" + campaign.id}
             >
-              <Card className="bg-card rounded-xl border border-border hover:bg-muted/30 transition-colors duration-150 cursor-pointer">
+              <Card className="bg-card rounded-xl border border-border hover:border-amber/15 hover:shadow-sm cursor-pointer">
                 <CardContent className="p-5">
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                     <div className="space-y-1.5">

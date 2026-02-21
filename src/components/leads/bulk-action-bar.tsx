@@ -14,8 +14,6 @@ interface BulkActionBarProps {
 
 export const BulkActionBar = forwardRef<HTMLDivElement, BulkActionBarProps>(
   function BulkActionBar({ count, onEdit, onDelete, onClear }, ref) {
-    if (count === 0) return null;
-
     return (
       <div
         ref={ref}
@@ -23,7 +21,10 @@ export const BulkActionBar = forwardRef<HTMLDivElement, BulkActionBarProps>(
           "fixed bottom-6 left-1/2 -translate-x-1/2 z-40",
           "flex items-center gap-3 px-4 py-2.5 rounded-full",
           "bg-foreground text-background shadow-2xl",
-          "animate-in slide-in-from-bottom-4 fade-in duration-200"
+          "transition-all duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          count > 0
+            ? "translate-y-0 opacity-100 scale-100"
+            : "translate-y-4 opacity-0 scale-95 pointer-events-none"
         )}
       >
         <button

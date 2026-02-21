@@ -226,7 +226,7 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
             <div key={label} className="flex items-center gap-3">
               <div
                 className={cn(
-                  "flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium",
+                  "flex items-center gap-2 rounded-full px-3 py-1.5 text-[12px] font-medium transition-all duration-200",
                   isCurrent
                     ? "bg-foreground text-white"
                     : isPast
@@ -256,7 +256,7 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
 
       {step === "upload" && (
         <Card
-          className="border-2 border-dashed border-border hover:border-amber/40 transition-colors cursor-pointer rounded-xl"
+          className="border-2 border-dashed border-border hover:border-amber/40 transition-colors cursor-pointer rounded-xl animate-scale-in"
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
         >
@@ -288,7 +288,7 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
       )}
 
       {step === "mapping" && (
-        <div className="space-y-5">
+        <div className="space-y-5 animate-blur-fade-in">
           <Card className="bg-card rounded-xl border border-border">
             <CardContent className="p-6 space-y-6">
               <div>
@@ -359,7 +359,7 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
       )}
 
       {step === "review" && (
-        <div className="space-y-5">
+        <div className="space-y-5 animate-blur-fade-in">
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-1.5 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-2">
               <Check className="h-4 w-4 text-emerald-600" />
@@ -452,7 +452,7 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
       )}
 
       {step === "done" && (
-        <Card className="bg-card rounded-xl border border-border">
+        <Card className="bg-card rounded-xl border border-border animate-scale-in">
           <CardContent className="p-10 sm:p-20 text-center">
             <div className="flex flex-col items-center gap-4">
               <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-emerald-50">

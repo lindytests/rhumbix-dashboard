@@ -208,15 +208,17 @@ export default function SendersClient({
         </Dialog>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3 stagger-children">
         {inboxes.map((inbox) => {
           const stats = inboxStats.find((s) => s.id === inbox.id);
           return (
             <Card
               key={inbox.id}
               className={cn(
-                "bg-card rounded-xl border border-border transition-opacity",
-                !inbox.is_active && "opacity-50"
+                "bg-card rounded-xl border border-border transition-[opacity,border-color,box-shadow]",
+                inbox.is_active
+                  ? "hover:border-amber/15 hover:shadow-sm"
+                  : "opacity-50"
               )}
             >
               <CardContent className="p-6">
@@ -287,7 +289,7 @@ export default function SendersClient({
 
         {inboxes.length === 0 && (
           <Card className="bg-card rounded-xl border border-border">
-            <CardContent className="p-16 text-center">
+            <CardContent className="p-16 text-center animate-fade-in">
               <p className="text-[14px] text-muted-foreground">
                 No sender inboxes configured
               </p>
