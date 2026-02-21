@@ -80,6 +80,65 @@ export async function deleteLeads(ids: string[]) {
   revalidatePath("/dashboard");
 }
 
+export async function updateLead(
+  id: string,
+  data: {
+    first_name?: string;
+    last_name?: string;
+    email?: string;
+    company?: string;
+    title?: string;
+    campaign_id?: string;
+  }
+) {
+  const now = new Date();
+  const set: Record<string, unknown> = { updated_at: now };
+
+  if (data.first_name !== undefined) set.first_name = data.first_name || null;
+  if (data.last_name !== undefined) set.last_name = data.last_name || null;
+  if (data.email !== undefined) set.email = data.email;
+  if (data.company !== undefined) set.company = data.company || null;
+  if (data.title !== undefined) set.title = data.title || null;
+  if (data.campaign_id !== undefined) {
+    set.campaign_id = data.campaign_id;
+    set.sender_inbox_id = await assignInbox();
+  }
+
+  await db.update(leads).set(set).where(eq(leads.id, id));
+  revalidatePath("/dashboard");
+}
+
+export async function updateLeads(
+  ids: string[],
+  data: {
+    first_name?: string;
+    last_name?: string;
+    company?: string;
+    title?: string;
+    campaign_id?: string;
+  }
+) {
+  if (ids.length === 0) return;
+  const now = new Date();
+
+  for (const id of ids) {
+    const set: Record<string, unknown> = { updated_at: now };
+
+    if (data.first_name !== undefined) set.first_name = data.first_name || null;
+    if (data.last_name !== undefined) set.last_name = data.last_name || null;
+    if (data.company !== undefined) set.company = data.company || null;
+    if (data.title !== undefined) set.title = data.title || null;
+    if (data.campaign_id !== undefined) {
+      set.campaign_id = data.campaign_id;
+      set.sender_inbox_id = await assignInbox();
+    }
+
+    await db.update(leads).set(set).where(eq(leads.id, id));
+  }
+
+  revalidatePath("/dashboard");
+}
+
 export async function importLeads(
   rows: {
     email: string;

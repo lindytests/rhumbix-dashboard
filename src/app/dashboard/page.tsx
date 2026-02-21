@@ -95,7 +95,7 @@ export default async function DashboardPage() {
               </p>
               <p
                 className={cn(
-                  "mt-2 text-3xl font-semibold font-heading tabular-nums tracking-[-0.02em]",
+                  "mt-2 text-3xl font-semibold font-heading tracking-[-0.02em]",
                   stat.highlight ? "text-amber" : "text-foreground"
                 )}
               >

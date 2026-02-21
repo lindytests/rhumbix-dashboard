@@ -34,7 +34,7 @@ export function CampaignSendButton({
     <Button
       onClick={handleSend}
       disabled={isPending || eligibleCount === 0}
-      className="bg-amber text-amber-foreground hover:bg-amber/90 h-9 text-[13px] font-semibold rounded-lg"
+      className="bg-amber text-white shadow-[0_1px_2px_0_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.15)] hover:bg-amber/85 active:bg-amber/80 active:shadow-none h-9 text-[13px] font-semibold"
     >
       {isPending ? (
         <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,11 +21,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Upload, Search, Trash2, Loader2, Send } from "lucide-react";
+import { Plus, Upload, Search, Loader2, Send, Minus } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { deleteLeads } from "@/lib/actions/leads";
 import { sendSingleLead } from "@/lib/actions/sending";
 import { toast } from "sonner";
+import { LeadEditDialog } from "@/components/leads/lead-edit-dialog";
+import { BulkEditDialog } from "@/components/leads/bulk-edit-dialog";
+import { BulkActionBar } from "@/components/leads/bulk-action-bar";
 import type { Lead, Campaign } from "@/lib/types";
 
 const statusLabels: Record<string, string> = {
@@ -63,6 +72,23 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const [sendingLeads, setSendingLeads] = useState<Set<string>>(new Set());
+  const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const tableCardRef = useRef<HTMLDivElement>(null);
+  const actionBarRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (selected.size === 0) return;
+      const target = e.target as Node;
+      if (tableCardRef.current?.contains(target)) return;
+      if (actionBarRef.current?.contains(target)) return;
+      setSelected(new Set());
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [selected.size]);
 
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch =
@@ -77,14 +103,56 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
     return matchesSearch && matchesCampaign && matchesStatus;
   });
 
-  const toggleOne = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
+  const handleSelectionClick = useCallback(
+    (index: number, e: React.MouseEvent) => {
+      const id = filteredLeads[index].id;
+
+      if (e.shiftKey && lastClickedIndex !== null) {
+        // Shift+click: select range
+        const start = Math.min(lastClickedIndex, index);
+        const end = Math.max(lastClickedIndex, index);
+        setSelected((prev) => {
+          const next = new Set(prev);
+          for (let i = start; i <= end; i++) {
+            next.add(filteredLeads[i].id);
+          }
+          return next;
+        });
+      } else if (e.metaKey || e.ctrlKey) {
+        // Cmd/Ctrl+click: toggle individual, keep others
+        setSelected((prev) => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+        });
+      } else {
+        // Plain click: toggle individual
+        setSelected((prev) => {
+          const next = new Set(prev);
+          if (next.has(id)) next.delete(id);
+          else next.add(id);
+          return next;
+        });
+      }
+
+      setLastClickedIndex(index);
+    },
+    [filteredLeads, lastClickedIndex]
+  );
+
+  const handleRowClick = useCallback(
+    (lead: Lead, index: number, e: React.MouseEvent) => {
+      // If shift or cmd/ctrl is held, treat as selection
+      if (e.shiftKey || e.metaKey || e.ctrlKey) {
+        handleSelectionClick(index, e);
+        return;
+      }
+      // Open edit dialog
+      setEditingLead(lead);
+    },
+    [handleSelectionClick]
+  );
 
   const toggleAll = () => {
     if (selected.size === filteredLeads.length) {
@@ -149,7 +217,7 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
           </Button>
           <Button
             asChild
-            className="bg-amber text-amber-foreground hover:bg-amber/90 h-9 text-[13px] font-semibold rounded-lg"
+            className="bg-amber text-white shadow-[0_1px_2px_0_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.15)] hover:bg-amber/85 active:bg-amber/80 active:shadow-none h-9 text-[13px] font-semibold"
           >
             <Link href="/dashboard/leads/new">
               <Plus className="h-4 w-4 mr-1.5" />
@@ -199,35 +267,23 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
         <span className="text-[12px] text-muted-foreground font-mono tabular-nums">
           {filteredLeads.length} result{filteredLeads.length !== 1 ? "s" : ""}
         </span>
-        {selected.size > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDelete}
-            disabled={isPending}
-            className="h-8 text-[12px] font-medium rounded-lg text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 gap-1.5"
-          >
-            {isPending ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Trash2 className="h-3.5 w-3.5" />
-            )}
-            Delete {selected.size}
-          </Button>
-        )}
       </div>
 
-      <Card className="bg-card rounded-xl border border-border overflow-hidden">
+      <Card ref={tableCardRef} className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="overflow-x-auto">
         <Table className="min-w-[800px]">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-border">
               <TableHead className="w-10 pl-4 pr-0">
-                <input
-                  type="checkbox"
-                  checked={filteredLeads.length > 0 && selected.size === filteredLeads.length}
-                  onChange={toggleAll}
-                  className="h-3.5 w-3.5 rounded border-border accent-amber cursor-pointer"
+                <Checkbox
+                  checked={
+                    filteredLeads.length > 0 && selected.size === filteredLeads.length
+                      ? true
+                      : selected.size > 0
+                        ? "indeterminate"
+                        : false
+                  }
+                  onCheckedChange={toggleAll}
                 />
               </TableHead>
               <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
@@ -254,21 +310,28 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredLeads.map((lead) => (
+            {filteredLeads.map((lead, index) => (
               <TableRow
                 key={lead.id}
+                onClick={(e) => handleRowClick(lead, index, e)}
                 className={cn(
-                  "hover:bg-muted/40 transition-colors",
+                  "hover:bg-muted/40 transition-colors cursor-pointer",
                   selected.has(lead.id) && "bg-amber/5"
                 )}
               >
                 <TableCell className="py-2.5 pl-4 pr-0">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(lead.id)}
-                    onChange={() => toggleOne(lead.id)}
-                    className="h-3.5 w-3.5 rounded border-border accent-amber cursor-pointer"
-                  />
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectionClick(index, e);
+                    }}
+                  >
+                    <Checkbox
+                      checked={selected.has(lead.id)}
+                      tabIndex={-1}
+                      className="pointer-events-none"
+                    />
+                  </div>
                 </TableCell>
                 <TableCell className="py-2.5">
                   <div>
@@ -324,18 +387,25 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
                 <TableCell className="py-2.5 text-right pr-5">
                   <div className="flex items-center justify-end gap-2">
                     {isSendable(lead) && (
-                      <button
-                        onClick={() => handleSend(lead.id)}
-                        disabled={sendingLeads.has(lead.id)}
-                        className="inline-flex items-center justify-center h-6 w-6 rounded-md hover:bg-amber/10 text-muted-foreground hover:text-amber transition-colors disabled:opacity-50"
-                        title="Send now"
-                      >
-                        {sendingLeads.has(lead.id) ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : (
-                          <Send className="h-3.5 w-3.5" />
-                        )}
-                      </button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSend(lead.id);
+                            }}
+                            disabled={sendingLeads.has(lead.id)}
+                            className="inline-flex items-center justify-center h-6 w-6 rounded-md hover:bg-amber/10 text-muted-foreground hover:text-amber transition-colors disabled:opacity-50"
+                          >
+                            {sendingLeads.has(lead.id) ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Send className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left">Send Now</TooltipContent>
+                      </Tooltip>
                     )}
                     <span className="text-[12px] tabular-nums font-mono">
                       {lead.next_send_date ? (() => {
@@ -381,6 +451,31 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
         </Table>
         </div>
       </Card>
+
+      <LeadEditDialog
+        lead={editingLead}
+        campaigns={campaigns}
+        open={editingLead !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingLead(null);
+        }}
+      />
+
+      <BulkEditDialog
+        leads={leads}
+        selectedIds={selected}
+        campaigns={campaigns}
+        open={bulkEditOpen}
+        onOpenChange={setBulkEditOpen}
+      />
+
+      <BulkActionBar
+        ref={actionBarRef}
+        count={selected.size}
+        onEdit={() => setBulkEditOpen(true)}
+        onDelete={handleDelete}
+        onClear={() => setSelected(new Set())}
+      />
     </div>
   );
 }

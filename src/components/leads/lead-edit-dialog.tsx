@@ -1,8 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,16 +17,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { createLead } from "@/lib/actions/leads";
-import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { updateLead } from "@/lib/actions/leads";
 import { toast } from "sonner";
-import type { Campaign } from "@/lib/types";
+import type { Lead, Campaign } from "@/lib/types";
 
-interface NewLeadClientProps {
+interface LeadEditDialogProps {
+  lead: Lead | null;
   campaigns: Campaign[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export default function NewLeadClient({ campaigns }: NewLeadClientProps) {
+export function LeadEditDialog({
+  lead,
+  campaigns,
+  open,
+  onOpenChange,
+}: LeadEditDialogProps) {
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
@@ -33,7 +45,25 @@ export default function NewLeadClient({ campaigns }: NewLeadClientProps) {
   });
   const [isPending, startTransition] = useTransition();
 
+  // Sync form when lead changes
+  const [prevLeadId, setPrevLeadId] = useState<string | null>(null);
+  if (lead && lead.id !== prevLeadId) {
+    setPrevLeadId(lead.id);
+    setForm({
+      first_name: lead.first_name ?? "",
+      last_name: lead.last_name ?? "",
+      email: lead.email,
+      company: lead.company ?? "",
+      title: lead.title ?? "",
+      campaign_id: lead.campaign_id,
+    });
+  }
+  if (!lead && prevLeadId !== null) {
+    setPrevLeadId(null);
+  }
+
   const handleSave = () => {
+    if (!lead) return;
     if (!form.email.trim()) {
       toast.error("Email is required");
       return;
@@ -43,44 +73,28 @@ export default function NewLeadClient({ campaigns }: NewLeadClientProps) {
       return;
     }
     startTransition(async () => {
-      await createLead(form);
+      await updateLead(lead.id, {
+        first_name: form.first_name,
+        last_name: form.last_name,
+        email: form.email,
+        company: form.company,
+        title: form.title,
+        campaign_id: form.campaign_id,
+      });
+      toast.success("Lead updated");
+      onOpenChange(false);
     });
   };
 
   return (
-    <div className="space-y-6 max-w-lg">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" asChild className="h-8 w-8 p-0 rounded-lg">
-            <Link href="/dashboard/leads">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold font-heading tracking-[-0.02em]">
-              Add Lead
-            </h1>
-            <p className="text-[14px] text-muted-foreground mt-0.5">
-              Manually add a single lead
-            </p>
-          </div>
-        </div>
-        <Button
-          onClick={handleSave}
-          disabled={isPending}
-          className="bg-amber text-white shadow-[0_1px_2px_0_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.15)] hover:bg-amber/85 active:bg-amber/80 active:shadow-none h-9 text-[13px] font-semibold"
-        >
-          {isPending ? (
-            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-          ) : (
-            <Save className="h-4 w-4 mr-1.5" />
-          )}
-          Save Lead
-        </Button>
-      </div>
-
-      <Card className="bg-card rounded-xl border border-border">
-        <CardContent className="p-6 space-y-6">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-[18px] font-semibold font-heading">
+            Edit Lead
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
@@ -88,7 +102,9 @@ export default function NewLeadClient({ campaigns }: NewLeadClientProps) {
               </Label>
               <Input
                 value={form.first_name}
-                onChange={(e) => setForm({ ...form, first_name: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, first_name: e.target.value })
+                }
                 className="h-9 text-[13px] rounded-lg"
                 placeholder="Jamie"
               />
@@ -99,7 +115,9 @@ export default function NewLeadClient({ campaigns }: NewLeadClientProps) {
               </Label>
               <Input
                 value={form.last_name}
-                onChange={(e) => setForm({ ...form, last_name: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, last_name: e.target.value })
+                }
                 className="h-9 text-[13px] rounded-lg"
                 placeholder="Chen"
               />
@@ -108,7 +126,7 @@ export default function NewLeadClient({ campaigns }: NewLeadClientProps) {
 
           <div className="space-y-2">
             <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Email *
+              Email
             </Label>
             <Input
               type="email"
@@ -145,21 +163,37 @@ export default function NewLeadClient({ campaigns }: NewLeadClientProps) {
 
           <div className="space-y-2">
             <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Campaign *
+              Campaign
             </Label>
-            <Select value={form.campaign_id} onValueChange={(v) => setForm({ ...form, campaign_id: v })}>
+            <Select
+              value={form.campaign_id}
+              onValueChange={(v) => setForm({ ...form, campaign_id: v })}
+            >
               <SelectTrigger className="h-9 text-[13px] rounded-lg">
                 <SelectValue placeholder="Select campaign" />
               </SelectTrigger>
               <SelectContent>
                 {campaigns.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+
+          <Button
+            onClick={handleSave}
+            disabled={isPending}
+            className="w-full bg-amber text-white shadow-[0_1px_2px_0_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.15)] hover:bg-amber/85 active:bg-amber/80 active:shadow-none h-9 text-[13px] font-semibold mt-1"
+          >
+            {isPending && (
+              <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+            )}
+            Save Changes
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

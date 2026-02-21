@@ -107,7 +107,7 @@ export default function SendersClient({
           <DialogTrigger asChild>
             <Button
               onClick={openNewDialog}
-              className="bg-amber text-amber-foreground hover:bg-amber/90 h-9 text-[13px] font-semibold rounded-lg"
+              className="bg-amber text-white shadow-[0_1px_2px_0_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.15)] hover:bg-amber/85 active:bg-amber/80 active:shadow-none h-9 text-[13px] font-semibold"
             >
               <Plus className="h-4 w-4 mr-1.5" />
               Add Inbox
@@ -198,7 +198,7 @@ export default function SendersClient({
               <Button
                 onClick={handleSave}
                 disabled={isPending}
-                className="w-full bg-amber text-amber-foreground hover:bg-amber/90 h-9 text-[13px] font-semibold rounded-lg mt-1"
+                className="w-full bg-amber text-white shadow-[0_1px_2px_0_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.15)] hover:bg-amber/85 active:bg-amber/80 active:shadow-none h-9 text-[13px] font-semibold mt-1"
               >
                 {isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
                 {editingInbox ? "Save Changes" : "Add Inbox"}

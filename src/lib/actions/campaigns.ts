@@ -62,6 +62,37 @@ export async function updateCampaign(
   redirect("/dashboard/campaigns/" + id);
 }
 
+export async function updateCampaignInline(
+  id: string,
+  name: string,
+  steps: EmailStep[]
+) {
+  await db
+    .update(campaigns)
+    .set({
+      name,
+      email_1_subject: steps[0].subject,
+      email_1_body: steps[0].body,
+      wait_after_email_1: steps[0].wait_days,
+      email_2_subject: steps[1]?.subject ?? null,
+      email_2_body: steps[1]?.body ?? null,
+      wait_after_email_2: steps[1]?.wait_days ?? null,
+      email_3_subject: steps[2]?.subject ?? null,
+      email_3_body: steps[2]?.body ?? null,
+      wait_after_email_3: steps[2]?.wait_days ?? null,
+      email_4_subject: steps[3]?.subject ?? null,
+      email_4_body: steps[3]?.body ?? null,
+      wait_after_email_4: steps[3]?.wait_days ?? null,
+      email_5_subject: steps[4]?.subject ?? null,
+      email_5_body: steps[4]?.body ?? null,
+      updated_at: new Date(),
+    })
+    .where(eq(campaigns.id, id));
+
+  revalidatePath("/dashboard");
+  return { success: true };
+}
+
 export async function deleteCampaign(id: string) {
   await db.delete(campaigns).where(eq(campaigns.id, id));
   revalidatePath("/dashboard");
