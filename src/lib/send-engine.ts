@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { appSettings, campaigns, leads, senderInboxes, sendLogs } from "@/lib/db/schema";
-import { eq, and, gte, ne, sql, isNull } from "drizzle-orm";
+import { eq, and, gte, ne, sql, isNull, inArray } from "drizzle-orm";
 
 const NEXT_EMAIL: Record<string, { emailNum: number; nextStatus: string }> = {
   pending: { emailNum: 1, nextStatus: "email_1_sent" },
@@ -48,6 +48,79 @@ function getEmailContent(
   return { subject, body };
 }
 
+async function rebalancePendingLeads(
+  activeInboxes: { id: string }[]
+) {
+  if (activeInboxes.length === 0) return;
+
+  const activeIds = activeInboxes.map((i) => i.id);
+
+  // Get all pending, non-deleted leads (including those on inactive/null inboxes)
+  const pendingLeads = await db
+    .select({ id: leads.id, sender_inbox_id: leads.sender_inbox_id })
+    .from(leads)
+    .where(and(eq(leads.status, "pending"), isNull(leads.deleted_at)));
+
+  if (pendingLeads.length === 0) return;
+
+  // Count locked (in-progress) leads per active inbox -- these can't move
+  const lockedCounts = await db
+    .select({
+      sender_inbox_id: leads.sender_inbox_id,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(leads)
+    .where(
+      and(
+        ne(leads.status, "pending"),
+        ne(leads.status, "completed"),
+        ne(leads.status, "failed"),
+        isNull(leads.deleted_at),
+        inArray(leads.sender_inbox_id, activeIds)
+      )
+    )
+    .groupBy(leads.sender_inbox_id);
+
+  // Build load map: start with locked counts
+  const load = new Map<string, number>();
+  for (const id of activeIds) load.set(id, 0);
+  for (const row of lockedCounts) {
+    if (row.sender_inbox_id) load.set(row.sender_inbox_id, row.count);
+  }
+
+  // Greedily assign each pending lead to the least-loaded inbox
+  const assignments = new Map<string, string[]>(); // inboxId -> leadIds
+  for (const id of activeIds) assignments.set(id, []);
+
+  for (const lead of pendingLeads) {
+    let minInbox = activeIds[0];
+    let minLoad = load.get(minInbox)!;
+    for (const id of activeIds) {
+      const l = load.get(id)!;
+      if (l < minLoad) {
+        minInbox = id;
+        minLoad = l;
+      }
+    }
+    assignments.get(minInbox)!.push(lead.id);
+    load.set(minInbox, minLoad + 1);
+  }
+
+  // Batch update per inbox (only if assignment changed)
+  for (const [inboxId, leadIds] of assignments) {
+    if (leadIds.length === 0) continue;
+    await db
+      .update(leads)
+      .set({ sender_inbox_id: inboxId, updated_at: new Date() })
+      .where(
+        and(
+          inArray(leads.id, leadIds),
+          eq(leads.status, "pending") // safety guard
+        )
+      );
+  }
+}
+
 export interface SendBatchOptions {
   campaignId?: string;
 }
@@ -76,6 +149,8 @@ export async function executeSendBatch(
     .select()
     .from(senderInboxes)
     .where(eq(senderInboxes.is_active, true));
+
+  await rebalancePendingLeads(activeInboxes);
 
   let totalSent = 0;
   let totalErrors = 0;
