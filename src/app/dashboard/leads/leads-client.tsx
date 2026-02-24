@@ -356,7 +356,7 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
                 </TableCell>
                 <TableCell className="py-2.5">
                   <span className="text-[12px] text-muted-foreground font-mono">
-                    {lead.sender_email || "Unassigned"}
+                    {lead.status !== "pending" ? lead.sender_email || "--" : "--"}
                   </span>
                 </TableCell>
                 <TableCell className="py-2.5">
