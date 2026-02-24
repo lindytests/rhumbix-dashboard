@@ -347,6 +347,54 @@ function rowToCampaign(row: typeof campaigns.$inferSelect): Campaign {
   };
 }
 
+/**
+ * Given a Date, return it unchanged if within business hours (Mon-Fri 9-17 ET),
+ * otherwise return 9 AM ET on the next business day.
+ */
+function nextBusinessOpen(date: Date): Date {
+  // Convert to ET via locale round-trip: the resulting Date's local-timezone
+  // getters (getDay, getHours, etc.) reflect ET wall-clock values.
+  const et = new Date(
+    date.toLocaleString("en-US", { timeZone: "America/New_York" })
+  );
+  const day = et.getDay();
+  const hour = et.getHours();
+
+  // Already within business hours
+  if (day >= 1 && day <= 5 && hour >= 9 && hour < 17) {
+    return date;
+  }
+
+  // Determine days to advance to reach the next weekday at 9 AM ET
+  let daysToAdd = 0;
+  if (day >= 1 && day <= 5 && hour < 9) {
+    daysToAdd = 0; // Weekday before 9 AM — same day
+  } else if (day === 5) {
+    daysToAdd = 3; // Fri after hours → Mon
+  } else if (day === 6) {
+    daysToAdd = 2; // Sat → Mon
+  } else if (day === 0) {
+    daysToAdd = 1; // Sun → Mon
+  } else {
+    daysToAdd = 1; // Mon-Thu after hours → next day
+  }
+
+  // Target ET date components
+  const targetYear = et.getFullYear();
+  const targetMonth = et.getMonth();
+  const targetDay = et.getDate() + daysToAdd; // Date.UTC handles overflow
+
+  // Find the ET→UTC offset for the target date.
+  // Use a noon-UTC probe (safely away from any 2 AM DST transition).
+  const probe = new Date(Date.UTC(targetYear, targetMonth, targetDay, 12, 0, 0));
+  const utcRepr = new Date(probe.toLocaleString("en-US", { timeZone: "UTC" }));
+  const etRepr = new Date(probe.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const offsetMs = utcRepr.getTime() - etRepr.getTime();
+
+  // 9:00 AM ET = 09:00 UTC + offset
+  return new Date(Date.UTC(targetYear, targetMonth, targetDay, 9, 0, 0) + offsetMs);
+}
+
 function addCalendarDaysSkipWeekends(start: Date, days: number): Date {
   const result = new Date(start);
   result.setDate(result.getDate() + days);
@@ -377,13 +425,9 @@ function computeNextSendDate(
   )
     return null;
 
-  // Pending leads are eligible on the next business day
+  // Pending leads are eligible at the next business hours window
   if (lead.status === "pending") {
-    const now = new Date();
-    const day = now.getDay();
-    if (day === 0) now.setDate(now.getDate() + 1); // Sunday → Monday
-    else if (day === 6) now.setDate(now.getDate() + 2); // Saturday → Monday
-    return now.toISOString();
+    return nextBusinessOpen(new Date()).toISOString();
   }
 
   // For in-progress leads, compute contacted_at + wait period
@@ -403,7 +447,7 @@ function computeNextSendDate(
     new Date(lead.contacted_at),
     waitValue
   );
-  return nextDate.toISOString();
+  return nextBusinessOpen(nextDate).toISOString();
 }
 
 function rowToLead(

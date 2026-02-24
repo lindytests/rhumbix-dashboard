@@ -13,6 +13,7 @@ import { SendControlStrip } from "@/components/send-control-strip";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { LocalTime } from "@/components/local-time";
 
 function getStatusColor(sent: number, limit: number) {
   const ratio = sent / limit;
@@ -253,15 +254,10 @@ export default async function DashboardPage() {
                   >
                     {logStatusLabels[log.status] || log.status}
                   </Badge>
-                  <span className="text-[12px] text-muted-foreground tabular-nums font-mono hidden sm:inline">
-                    {new Date(log.sent_at).toLocaleString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                      hour12: true,
-                    })}
-                  </span>
+                  <LocalTime
+                    date={log.sent_at}
+                    className="text-[12px] text-muted-foreground tabular-nums font-mono hidden sm:inline"
+                  />
                 </div>
               </div>
             ))}
