@@ -284,7 +284,8 @@ export function CampaignDetailClient({
             ) : (
               <h1
                 onClick={() => startEditing({ type: "name" })}
-                className="text-2xl font-semibold font-heading tracking-[-0.02em] cursor-text rounded px-1 -mx-1 hover:bg-muted/40 transition-colors"
+                className="text-2xl font-semibold font-heading tracking-[-0.02em] cursor-text rounded px-1 -mx-1 hover:bg-muted/40 transition-colors truncate max-w-[500px]"
+                title={name}
               >
                 {name}
               </h1>

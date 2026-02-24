@@ -49,8 +49,11 @@ export default function LogClient({ logs, campaigns }: LogClientProps) {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [timeRange, setTimeRange] = useState<TimeRange>("all");
   const [sortAsc, setSortAsc] = useState(false);
+  const [page, setPage] = useState(0);
+  const pageSize = 50;
 
   const filteredLogs = useMemo(() => {
+    setPage(0);
     const now = new Date();
     const startOfToday = new Date(now);
     startOfToday.setHours(0, 0, 0, 0);
@@ -99,6 +102,9 @@ export default function LogClient({ logs, campaigns }: LogClientProps) {
 
     return result;
   }, [logs, search, campaignFilter, statusFilter, timeRange, sortAsc]);
+
+  const totalPages = Math.ceil(filteredLogs.length / pageSize);
+  const paginatedLogs = filteredLogs.slice(page * pageSize, (page + 1) * pageSize);
 
   return (
     <div className="space-y-6">
@@ -199,29 +205,29 @@ export default function LogClient({ logs, campaigns }: LogClientProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredLogs.map((log) => (
+              {paginatedLogs.map((log) => (
                 <TableRow
                   key={log.id}
                   className="hover:bg-muted/40 transition-colors"
                 >
-                  <TableCell className="py-2.5">
-                    <div>
-                      <p className="text-[13px] font-semibold">
+                  <TableCell className="py-2.5 max-w-[200px]">
+                    <div className="truncate">
+                      <p className="text-[13px] font-semibold truncate" title={`${log.first_name ?? ""} ${log.last_name ?? ""}`.trim()}>
                         {log.first_name} {log.last_name}
                       </p>
-                      <p className="text-[12px] text-muted-foreground">
+                      <p className="text-[12px] text-muted-foreground truncate" title={log.email}>
                         {log.email}
                       </p>
                     </div>
                   </TableCell>
-                  <TableCell className="py-2.5">
-                    <span className="text-[13px]">{log.company || "--"}</span>
+                  <TableCell className="py-2.5 max-w-[140px]">
+                    <span className="text-[13px] truncate block" title={log.company || ""}>{log.company || "--"}</span>
                   </TableCell>
-                  <TableCell className="py-2.5">
-                    <span className="text-[13px]">{log.campaign_name}</span>
+                  <TableCell className="py-2.5 max-w-[160px]">
+                    <span className="text-[13px] truncate block" title={log.campaign_name}>{log.campaign_name}</span>
                   </TableCell>
-                  <TableCell className="py-2.5">
-                    <span className="text-[12px] text-muted-foreground font-mono">
+                  <TableCell className="py-2.5 max-w-[160px]">
+                    <span className="text-[12px] text-muted-foreground font-mono truncate block" title={log.sender_email}>
                       {log.sender_email}
                     </span>
                   </TableCell>
@@ -254,7 +260,7 @@ export default function LogClient({ logs, campaigns }: LogClientProps) {
                   </TableCell>
                 </TableRow>
               ))}
-              {filteredLogs.length === 0 && (
+              {paginatedLogs.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-16">
                     <p className="text-[14px] text-muted-foreground animate-fade-in">
@@ -266,6 +272,33 @@ export default function LogClient({ logs, campaigns }: LogClientProps) {
             </TableBody>
           </Table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border px-4 py-3">
+            <span className="text-[12px] text-muted-foreground font-mono tabular-nums">
+              {page * pageSize + 1}--{Math.min((page + 1) * pageSize, filteredLogs.length)} of {filteredLogs.length}
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={page === 0}
+                onClick={() => setPage((p) => p - 1)}
+                className="h-7 px-2.5 text-[12px] rounded-lg"
+              >
+                Previous
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage((p) => p + 1)}
+                className="h-7 px-2.5 text-[12px] rounded-lg"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </div>
   );

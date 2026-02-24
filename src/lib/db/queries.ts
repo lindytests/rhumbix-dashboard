@@ -16,6 +16,7 @@ export async function getCampaigns(): Promise<Campaign[]> {
   const rows = await db
     .select()
     .from(campaigns)
+    .where(isNull(campaigns.deleted_at))
     .orderBy(desc(campaigns.created_at));
   return rows.map(rowToCampaign);
 }
@@ -28,26 +29,35 @@ export async function getCampaignById(
 }
 
 export async function getCampaignStats(): Promise<CampaignStats[]> {
-  const allCampaigns = await getCampaigns();
-  const allLeads = await db.select().from(leads).where(isNull(leads.deleted_at));
+  const rows = await db
+    .select({
+      id: campaigns.id,
+      name: campaigns.name,
+      created_at: campaigns.created_at,
+      total_leads: sql<number>`count(${leads.id})::int`,
+      pending: sql<number>`count(*) filter (where ${leads.status} = 'pending')::int`,
+      in_progress: sql<number>`count(*) filter (where ${leads.status} not in ('pending', 'completed', 'failed') and ${leads.status} is not null)::int`,
+      completed: sql<number>`count(*) filter (where ${leads.status} = 'completed')::int`,
+      responded: sql<number>`count(*) filter (where ${leads.response_received} = true)::int`,
+    })
+    .from(campaigns)
+    .leftJoin(
+      leads,
+      and(eq(leads.campaign_id, campaigns.id), isNull(leads.deleted_at))
+    )
+    .where(isNull(campaigns.deleted_at))
+    .groupBy(campaigns.id, campaigns.name, campaigns.created_at)
+    .orderBy(desc(campaigns.created_at));
 
-  return allCampaigns.map((c) => {
-    const campaignLeads = allLeads.filter((l) => l.campaign_id === c.id);
-    return {
-      id: c.id,
-      name: c.name,
-      total_leads: campaignLeads.length,
-      pending: campaignLeads.filter((l) => l.status === "pending").length,
-      in_progress: campaignLeads.filter(
-        (l) =>
-          l.status !== "pending" &&
-          l.status !== "completed" &&
-          l.status !== "failed"
-      ).length,
-      completed: campaignLeads.filter((l) => l.status === "completed").length,
-      responded: campaignLeads.filter((l) => l.response_received).length,
-    };
-  });
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    total_leads: r.total_leads,
+    pending: r.pending,
+    in_progress: r.in_progress,
+    completed: r.completed,
+    responded: r.responded,
+  }));
 }
 
 // ── Leads ──────────────────────────────────────────────
@@ -123,8 +133,12 @@ export async function getSenderInboxes(): Promise<SenderInbox[]> {
 export async function getInboxStats(): Promise<InboxStats[]> {
   const inboxes = await getSenderInboxes();
   const now = new Date();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
+  // Daily limit resets at midnight ET
+  const etNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const etMidnight = new Date(etNow);
+  etMidnight.setHours(0, 0, 0, 0);
+  const offsetMs = now.getTime() - etNow.getTime();
+  const startOfDay = new Date(etMidnight.getTime() + offsetMs);
   const startOfHour = new Date(now);
   startOfHour.setMinutes(0, 0, 0);
 
@@ -248,8 +262,12 @@ export async function getEligibleLeadCount(
   campaignId?: string
 ): Promise<number> {
   const now = new Date();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
+  // Daily limit resets at midnight ET
+  const etNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const etMidnight = new Date(etNow);
+  etMidnight.setHours(0, 0, 0, 0);
+  const offsetMs = now.getTime() - etNow.getTime();
+  const startOfDay = new Date(etMidnight.getTime() + offsetMs);
 
   const settings = await getAppSettings();
   const testMode = settings.test_mode;

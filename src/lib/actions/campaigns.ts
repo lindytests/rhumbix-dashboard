@@ -1,13 +1,37 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { campaigns } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { campaigns, leads } from "@/lib/db/schema";
+import { eq, and, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { EmailStep } from "@/lib/types";
 
+function validateSteps(steps: EmailStep[]) {
+  if (!steps.length || !steps[0].subject?.trim() || !steps[0].body?.trim()) {
+    throw new Error("Email 1 subject and body are required");
+  }
+  for (let i = 1; i < steps.length; i++) {
+    const step = steps[i];
+    const hasSubject = !!step.subject?.trim();
+    const hasBody = !!step.body?.trim();
+    if (hasSubject !== hasBody) {
+      throw new Error(`Email ${i + 1} must have both subject and body, or neither`);
+    }
+    if (step.wait_days !== null && step.wait_days !== undefined) {
+      if (step.wait_days < 1 || step.wait_days > 365) {
+        throw new Error("Wait days must be between 1 and 365");
+      }
+    }
+  }
+}
+
 export async function createCampaign(name: string, steps: EmailStep[]) {
+  if (!name.trim()) {
+    throw new Error("Campaign name is required");
+  }
+  validateSteps(steps);
+
   const data: typeof campaigns.$inferInsert = {
     name,
     email_1_subject: steps[0].subject,
@@ -36,6 +60,11 @@ export async function updateCampaign(
   name: string,
   steps: EmailStep[]
 ) {
+  if (!name.trim()) {
+    throw new Error("Campaign name is required");
+  }
+  validateSteps(steps);
+
   await db
     .update(campaigns)
     .set({
@@ -67,6 +96,11 @@ export async function updateCampaignInline(
   name: string,
   steps: EmailStep[]
 ) {
+  if (!name.trim()) {
+    throw new Error("Campaign name is required");
+  }
+  validateSteps(steps);
+
   await db
     .update(campaigns)
     .set({
@@ -94,7 +128,17 @@ export async function updateCampaignInline(
 }
 
 export async function deleteCampaign(id: string) {
-  await db.delete(campaigns).where(eq(campaigns.id, id));
+  const now = new Date();
+  // Soft-delete all leads in the campaign first
+  await db
+    .update(leads)
+    .set({ deleted_at: now, updated_at: now })
+    .where(and(eq(leads.campaign_id, id), isNull(leads.deleted_at)));
+  // Soft-delete the campaign itself
+  await db
+    .update(campaigns)
+    .set({ deleted_at: now, updated_at: now })
+    .where(eq(campaigns.id, id));
   revalidatePath("/dashboard");
   redirect("/dashboard/campaigns");
 }

@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
 import { appSettings } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { executeSendBatch } from "@/lib/send-engine";
 
 export const dynamic = "force-dynamic";
+
+function verifySecret(header: string | null, secret: string): boolean {
+  if (!header || !secret) return false;
+  const expected = `Bearer ${secret}`;
+  if (header.length !== expected.length) return false;
+  return timingSafeEqual(Buffer.from(header), Buffer.from(expected));
+}
 
 function isBusinessHours(): boolean {
   const now = new Date();
@@ -17,8 +25,13 @@ function isBusinessHours(): boolean {
 }
 
 export async function GET(request: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret) {
+    console.error("[cron] CRON_SECRET env var is not set — all requests will be rejected");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const authHeader = request.headers.get("authorization");
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifySecret(authHeader, cronSecret)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

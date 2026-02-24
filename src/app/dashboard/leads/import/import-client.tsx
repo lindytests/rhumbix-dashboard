@@ -98,12 +98,20 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const data = results.data as ParsedRow[];
-        const cols = results.meta.fields || [];
+        const rawCols = results.meta.fields || [];
+        // Strip BOM and whitespace from headers, then remap data keys
+        const cleanCols = rawCols.map((c) => c.replace(/^\uFEFF/, "").trim());
+        const data = (results.data as ParsedRow[]).map((row) => {
+          const clean: ParsedRow = {};
+          rawCols.forEach((raw, i) => {
+            clean[cleanCols[i]] = row[raw];
+          });
+          return clean;
+        });
         setRawData(data);
-        setHeaders(cols);
+        setHeaders(cleanCols);
         const autoMap: Record<string, string> = {};
-        cols.forEach((col) => {
+        cleanCols.forEach((col) => {
           const guess = guessMapping(col);
           if (guess && !Object.values(autoMap).includes(guess)) {
             autoMap[col] = guess;
@@ -135,6 +143,7 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (file) handleFile(file);
+      e.target.value = "";
     },
     [handleFile]
   );
@@ -316,7 +325,7 @@ export default function ImportClient({ campaigns }: ImportClientProps) {
                 <div className="space-y-3">
                   {headers.map((header) => (
                     <div key={header} className="flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3">
-                      <span className="text-[12px] w-full sm:w-44 truncate font-mono bg-muted px-3 py-1.5 rounded-lg text-muted-foreground">
+                      <span className="text-[12px] shrink-0 w-full sm:w-56 truncate font-mono bg-muted px-3 py-1.5 rounded-lg text-muted-foreground" title={header}>
                         {header}
                       </span>
                       <ArrowRight className="h-3 w-3 text-muted-foreground/30 shrink-0" />

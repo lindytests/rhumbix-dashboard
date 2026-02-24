@@ -28,6 +28,7 @@ export const BulkActionBar = forwardRef<HTMLDivElement, BulkActionBarProps>(
         )}
       >
         <button
+          aria-label="Clear selection"
           onClick={onClear}
           className="flex items-center gap-1.5 text-[13px] font-medium opacity-80 hover:opacity-100 transition-opacity"
         >

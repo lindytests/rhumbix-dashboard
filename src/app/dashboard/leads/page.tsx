@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 
+import { Suspense } from "react";
 import { getLeads, getCampaigns, getAppSettings } from "@/lib/db/queries";
 import LeadsClient from "./leads-client";
 
@@ -11,10 +12,12 @@ export default async function LeadsPage() {
   ]);
 
   return (
-    <LeadsClient
-      leads={leads}
-      campaigns={campaigns}
-      autoSendEnabled={settings.auto_send_enabled}
-    />
+    <Suspense>
+      <LeadsClient
+        leads={leads}
+        campaigns={campaigns}
+        autoSendEnabled={settings.auto_send_enabled}
+      />
+    </Suspense>
   );
 }

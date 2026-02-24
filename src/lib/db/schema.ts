@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   pgEnum,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const leadStatusEnum = pgEnum("lead_status", [
@@ -45,6 +46,7 @@ export const campaigns = pgTable("campaigns", {
   created_at: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
+  deleted_at: timestamp("deleted_at", { withTimezone: true }),
   updated_at: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
@@ -87,7 +89,13 @@ export const leads = pgTable("leads", {
   updated_at: timestamp("updated_at", { withTimezone: true })
     .defaultNow()
     .notNull(),
-});
+}, (table) => [
+  index("leads_campaign_id_idx").on(table.campaign_id),
+  index("leads_sender_inbox_id_idx").on(table.sender_inbox_id),
+  index("leads_status_idx").on(table.status),
+  index("leads_deleted_at_idx").on(table.deleted_at),
+  index("leads_email_idx").on(table.email),
+]);
 
 export const appSettings = pgTable("app_settings", {
   id: integer("id").primaryKey().default(1),
@@ -109,4 +117,8 @@ export const sendLogs = pgTable("send_logs", {
   email_number: integer("email_number").notNull(),
   sent_at: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
   status: sendLogStatusEnum("status").notNull().default("sent"),
-});
+}, (table) => [
+  index("send_logs_sender_inbox_id_idx").on(table.sender_inbox_id),
+  index("send_logs_sent_at_idx").on(table.sent_at),
+  index("send_logs_lead_id_idx").on(table.lead_id),
+]);

@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { appSettings, campaigns, leads, senderInboxes, sendLogs } from "@/lib/db/schema";
+import { appSettings, campaigns, leads, senderInboxes, sendLogs, leadStatusEnum } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { executeSendBatch } from "@/lib/send-engine";
@@ -62,7 +62,9 @@ export async function manualSendCampaign(
   return result;
 }
 
-const NEXT_EMAIL: Record<string, { emailNum: number; nextStatus: string }> = {
+type LeadStatus = (typeof leadStatusEnum.enumValues)[number];
+
+const NEXT_EMAIL: Record<string, { emailNum: number; nextStatus: LeadStatus }> = {
   pending: { emailNum: 1, nextStatus: "email_1_sent" },
   email_1_sent: { emailNum: 2, nextStatus: "email_2_sent" },
   email_2_sent: { emailNum: 3, nextStatus: "email_3_sent" },
@@ -70,12 +72,24 @@ const NEXT_EMAIL: Record<string, { emailNum: number; nextStatus: string }> = {
   email_4_sent: { emailNum: 5, nextStatus: "email_5_sent" },
 };
 
+type CampaignRow = typeof campaigns.$inferSelect;
+
+const EMAIL_FIELDS: Record<number, { subject: keyof CampaignRow; body: keyof CampaignRow }> = {
+  1: { subject: "email_1_subject", body: "email_1_body" },
+  2: { subject: "email_2_subject", body: "email_2_body" },
+  3: { subject: "email_3_subject", body: "email_3_body" },
+  4: { subject: "email_4_subject", body: "email_4_body" },
+  5: { subject: "email_5_subject", body: "email_5_body" },
+};
+
 function getEmailContent(
-  campaign: Record<string, unknown>,
+  campaign: CampaignRow,
   emailNum: number
 ): { subject: string; body: string } | null {
-  const subject = campaign[`email_${emailNum}_subject`] as string | null;
-  const body = campaign[`email_${emailNum}_body`] as string | null;
+  const fields = EMAIL_FIELDS[emailNum];
+  if (!fields) return null;
+  const subject = campaign[fields.subject] as string | null;
+  const body = campaign[fields.body] as string | null;
   if (!subject || !body) return null;
   return { subject, body };
 }
@@ -113,10 +127,7 @@ export async function sendSingleLead(
     return { success: false, error: "No more emails in the sequence" };
   }
 
-  const content = getEmailContent(
-    campaign as unknown as Record<string, unknown>,
-    next.emailNum
-  );
+  const content = getEmailContent(campaign, next.emailNum);
   if (!content) {
     // No email content configured for this step — mark completed
     await db
@@ -169,12 +180,12 @@ export async function sendSingleLead(
   const claimed = await db
     .update(leads)
     .set({
-      status: next.nextStatus as typeof lead.status,
+      status: next.nextStatus,
       contacted_at: now,
       updated_at: now,
     })
     .where(
-      and(eq(leads.id, lead.id), eq(leads.status, lead.status as typeof lead.status))
+      and(eq(leads.id, lead.id), eq(leads.status, lead.status))
     )
     .returning({ id: leads.id });
   if (claimed.length === 0) {

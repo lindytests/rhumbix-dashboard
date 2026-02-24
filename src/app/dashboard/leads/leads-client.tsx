@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useCallback, useEffect, useRef } from "react";
+import { useState, useMemo, useTransition, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Upload, Search, Loader2, Send, Minus } from "lucide-react";
+import { Plus, Upload, Search, Loader2, Send, ArrowUp, ArrowDown } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Tooltip,
@@ -35,7 +35,11 @@ import { toast } from "sonner";
 import { LeadEditDialog } from "@/components/leads/lead-edit-dialog";
 import { BulkEditDialog } from "@/components/leads/bulk-edit-dialog";
 import { BulkActionBar } from "@/components/leads/bulk-action-bar";
+import { useSearchParams, useRouter } from "next/navigation";
 import type { Lead, Campaign } from "@/lib/types";
+
+type SortKey = "contact" | "company" | "campaign" | "status" | "started" | "next_send" | null;
+type SortDir = "asc" | "desc";
 
 const statusLabels: Record<string, string> = {
   pending: "Pending",
@@ -66,17 +70,42 @@ interface LeadsClientProps {
 }
 
 export default function LeadsClient({ leads, campaigns, autoSendEnabled }: LeadsClientProps) {
-  const [search, setSearch] = useState("");
-  const [campaignFilter, setCampaignFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [search, setSearch] = useState(searchParams.get("q") ?? "");
+  const [campaignFilter, setCampaignFilter] = useState<string>(searchParams.get("campaign") ?? "all");
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("status") ?? "all");
+  const [sortKey, setSortKey] = useState<SortKey>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
   const [sendingLeads, setSendingLeads] = useState<Set<string>>(new Set());
   const [lastClickedIndex, setLastClickedIndex] = useState<number | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [page, setPage] = useState(0);
+  const pageSize = 50;
   const tableCardRef = useRef<HTMLDivElement>(null);
   const actionBarRef = useRef<HTMLDivElement>(null);
+
+  // Sync filters to URL
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (search) params.set("q", search);
+    if (campaignFilter !== "all") params.set("campaign", campaignFilter);
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    const qs = params.toString();
+    router.replace(`/dashboard/leads${qs ? `?${qs}` : ""}`, { scroll: false });
+  }, [search, campaignFilter, statusFilter, router]);
+
+  const toggleSort = useCallback((key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }, [sortKey]);
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -88,20 +117,56 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [selected.size]);
+  }, [selected]);
 
-  const filteredLeads = leads.filter((lead) => {
-    const matchesSearch =
-      search === "" ||
-      (lead.first_name + " " + lead.last_name + " " + lead.email + " " + lead.company)
-        .toLowerCase()
-        .includes(search.toLowerCase());
-    const matchesCampaign =
-      campaignFilter === "all" || lead.campaign_id === campaignFilter;
-    const matchesStatus =
-      statusFilter === "all" || lead.status === statusFilter;
-    return matchesSearch && matchesCampaign && matchesStatus;
-  });
+  const filteredLeads = useMemo(() => {
+    setPage(0);
+    setSelected(new Set());
+    setLastClickedIndex(null);
+    const filtered = leads.filter((lead) => {
+      const matchesSearch =
+        search === "" ||
+        (lead.first_name + " " + lead.last_name + " " + lead.email + " " + lead.company)
+          .toLowerCase()
+          .includes(search.toLowerCase());
+      const matchesCampaign =
+        campaignFilter === "all" || lead.campaign_id === campaignFilter;
+      const matchesStatus =
+        statusFilter === "all" || lead.status === statusFilter;
+      return matchesSearch && matchesCampaign && matchesStatus;
+    });
+
+    if (!sortKey) return filtered;
+
+    const dir = sortDir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "contact":
+          cmp = ((a.first_name ?? "") + (a.last_name ?? "")).localeCompare((b.first_name ?? "") + (b.last_name ?? ""));
+          break;
+        case "company":
+          cmp = (a.company ?? "").localeCompare(b.company ?? "");
+          break;
+        case "campaign":
+          cmp = (a.campaign_name ?? "").localeCompare(b.campaign_name ?? "");
+          break;
+        case "status":
+          cmp = a.status.localeCompare(b.status);
+          break;
+        case "started":
+          cmp = (a.contacted_at ?? "").localeCompare(b.contacted_at ?? "");
+          break;
+        case "next_send":
+          cmp = (a.next_send_date ?? "").localeCompare(b.next_send_date ?? "");
+          break;
+      }
+      return cmp * dir;
+    });
+  }, [leads, search, campaignFilter, statusFilter, sortKey, sortDir]);
+
+  const totalPages = Math.ceil(filteredLeads.length / pageSize);
+  const paginatedLeads = filteredLeads.slice(page * pageSize, (page + 1) * pageSize);
 
   const handleSelectionClick = useCallback(
     (index: number, e: React.MouseEvent) => {
@@ -276,6 +341,7 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
             <TableRow className="hover:bg-transparent border-b border-border">
               <TableHead className="w-10 pl-4 pr-0">
                 <Checkbox
+                  aria-label="Select all leads"
                   checked={
                     filteredLeads.length > 0 && selected.size === filteredLeads.length
                       ? true
@@ -286,34 +352,52 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
                   onCheckedChange={toggleAll}
                 />
               </TableHead>
-              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
-                Contact
-              </TableHead>
-              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
-                Company
-              </TableHead>
-              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
-                Campaign
-              </TableHead>
-              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
-                Sender
-              </TableHead>
-              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
-                Status
-              </TableHead>
-              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground">
-                Started
-              </TableHead>
-              <TableHead className="text-[11px] font-semibold uppercase tracking-wider h-10 text-right text-muted-foreground pr-5">
-                Next Send
+              {([
+                { key: "contact" as SortKey, label: "Contact" },
+                { key: "company" as SortKey, label: "Company" },
+                { key: "campaign" as SortKey, label: "Campaign" },
+                { key: null, label: "Sender" },
+                { key: "status" as SortKey, label: "Status" },
+                { key: "started" as SortKey, label: "Started" },
+              ] as const).map(({ key, label }) => (
+                <TableHead
+                  key={label}
+                  className={cn(
+                    "text-[11px] font-semibold uppercase tracking-wider h-10 text-muted-foreground",
+                    key && "cursor-pointer select-none hover:text-foreground transition-colors"
+                  )}
+                  onClick={key ? () => toggleSort(key) : undefined}
+                >
+                  <span className="inline-flex items-center gap-1">
+                    {label}
+                    {key && sortKey === key && (
+                      sortDir === "asc"
+                        ? <ArrowUp className="h-3 w-3" />
+                        : <ArrowDown className="h-3 w-3" />
+                    )}
+                  </span>
+                </TableHead>
+              ))}
+              <TableHead
+                className="text-[11px] font-semibold uppercase tracking-wider h-10 text-right text-muted-foreground pr-5 cursor-pointer select-none hover:text-foreground transition-colors"
+                onClick={() => toggleSort("next_send")}
+              >
+                <span className="inline-flex items-center gap-1 justify-end">
+                  Next Send
+                  {sortKey === "next_send" && (
+                    sortDir === "asc"
+                      ? <ArrowUp className="h-3 w-3" />
+                      : <ArrowDown className="h-3 w-3" />
+                  )}
+                </span>
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredLeads.map((lead, index) => (
+            {paginatedLeads.map((lead, index) => (
               <TableRow
                 key={lead.id}
-                onClick={(e) => handleRowClick(lead, index, e)}
+                onClick={(e) => handleRowClick(lead, page * pageSize + index, e)}
                 className={cn(
                   "hover:bg-muted/40 transition-colors cursor-pointer",
                   selected.has(lead.id) && "bg-amber/5"
@@ -323,7 +407,7 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleSelectionClick(index, e);
+                      handleSelectionClick(page * pageSize + index, e);
                     }}
                   >
                     <Checkbox
@@ -333,29 +417,29 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
                     />
                   </div>
                 </TableCell>
-                <TableCell className="py-2.5">
-                  <div>
-                    <p className="text-[13px] font-semibold">
+                <TableCell className="py-2.5 max-w-[200px]">
+                  <div className="truncate">
+                    <p className="text-[13px] font-semibold truncate" title={`${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim()}>
                       {lead.first_name} {lead.last_name}
                     </p>
-                    <p className="text-[12px] text-muted-foreground">
+                    <p className="text-[12px] text-muted-foreground truncate" title={lead.email}>
                       {lead.email}
                     </p>
                   </div>
                 </TableCell>
-                <TableCell className="py-2.5">
-                  <div>
-                    <p className="text-[13px]">{lead.company}</p>
-                    <p className="text-[11px] text-muted-foreground">
+                <TableCell className="py-2.5 max-w-[160px]">
+                  <div className="truncate">
+                    <p className="text-[13px] truncate" title={lead.company ?? ""}>{lead.company}</p>
+                    <p className="text-[11px] text-muted-foreground truncate" title={lead.title ?? ""}>
                       {lead.title}
                     </p>
                   </div>
                 </TableCell>
-                <TableCell className="py-2.5">
-                  <span className="text-[13px]">{lead.campaign_name}</span>
+                <TableCell className="py-2.5 max-w-[160px]">
+                  <span className="text-[13px] truncate block" title={lead.campaign_name}>{lead.campaign_name}</span>
                 </TableCell>
-                <TableCell className="py-2.5">
-                  <span className="text-[12px] text-muted-foreground font-mono">
+                <TableCell className="py-2.5 max-w-[160px]">
+                  <span className="text-[12px] text-muted-foreground font-mono truncate block" title={lead.status !== "pending" ? lead.sender_email : ""}>
                     {lead.status !== "pending" ? lead.sender_email || "--" : "--"}
                   </span>
                 </TableCell>
@@ -390,12 +474,13 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <button
+                            aria-label={`Send email to ${lead.first_name ?? ""} ${lead.last_name ?? ""}`.trim()}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleSend(lead.id);
                             }}
                             disabled={sendingLeads.has(lead.id)}
-                            className="inline-flex items-center justify-center h-6 w-6 rounded-md hover:bg-amber/10 text-muted-foreground hover:text-amber transition-colors disabled:opacity-50"
+                            className="inline-flex items-center justify-center h-7 w-7 rounded-md hover:bg-amber/10 text-muted-foreground hover:text-amber transition-colors disabled:opacity-50"
                           >
                             {sendingLeads.has(lead.id) ? (
                               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -438,7 +523,7 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
                 </TableCell>
               </TableRow>
             ))}
-            {filteredLeads.length === 0 && (
+            {paginatedLeads.length === 0 && (
               <TableRow>
                 <TableCell colSpan={8} className="text-center py-16">
                   <p className="text-[14px] text-muted-foreground animate-fade-in">
@@ -450,6 +535,33 @@ export default function LeadsClient({ leads, campaigns, autoSendEnabled }: Leads
           </TableBody>
         </Table>
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-border px-4 py-3">
+            <span className="text-[12px] text-muted-foreground font-mono tabular-nums">
+              {page * pageSize + 1}--{Math.min((page + 1) * pageSize, filteredLeads.length)} of {filteredLeads.length}
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={page === 0}
+                onClick={() => setPage((p) => p - 1)}
+                className="h-7 px-2.5 text-[12px] rounded-lg"
+              >
+                Previous
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={page >= totalPages - 1}
+                onClick={() => setPage((p) => p + 1)}
+                className="h-7 px-2.5 text-[12px] rounded-lg"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
 
       <LeadEditDialog

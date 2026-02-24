@@ -2,31 +2,49 @@
 
 import { db } from "@/lib/db";
 import { leads, senderInboxes } from "@/lib/db/schema";
-import { eq, and, ne, sql, isNull } from "drizzle-orm";
+import { eq, and, ne, sql, isNull, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 async function assignInbox(): Promise<string | null> {
   const activeInboxes = await db
-    .select()
+    .select({ id: senderInboxes.id })
     .from(senderInboxes)
     .where(eq(senderInboxes.is_active, true));
   if (activeInboxes.length === 0) return null;
 
-  // Count leads per inbox and pick the one with fewest
-  const counts = await Promise.all(
-    activeInboxes.map(async (inbox) => {
-      const inboxLeads = await db
-        .select()
-        .from(leads)
-        .where(and(eq(leads.sender_inbox_id, inbox.id), isNull(leads.deleted_at)));
-      return { id: inbox.id, count: inboxLeads.length };
+  // Single aggregation query to count leads per inbox
+  const activeIds = activeInboxes.map((i) => i.id);
+  const counts = await db
+    .select({
+      sender_inbox_id: leads.sender_inbox_id,
+      count: sql<number>`count(*)::int`,
     })
-  );
+    .from(leads)
+    .where(
+      and(
+        inArray(leads.sender_inbox_id, activeIds),
+        isNull(leads.deleted_at)
+      )
+    )
+    .groupBy(leads.sender_inbox_id);
 
-  counts.sort((a, b) => a.count - b.count);
-  return counts[0].id;
+  const countMap = new Map(counts.map((c) => [c.sender_inbox_id, c.count]));
+
+  // Pick inbox with fewest leads
+  let minId = activeIds[0];
+  let minCount = countMap.get(minId) ?? 0;
+  for (const id of activeIds) {
+    const c = countMap.get(id) ?? 0;
+    if (c < minCount) {
+      minId = id;
+      minCount = c;
+    }
+  }
+  return minId;
 }
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function createLead(data: {
   first_name: string;
@@ -36,6 +54,14 @@ export async function createLead(data: {
   title: string;
   campaign_id: string;
 }) {
+  const email = data.email.trim().toLowerCase();
+  if (!email || !EMAIL_RE.test(email)) {
+    throw new Error("Please enter a valid email address");
+  }
+  if (!data.campaign_id) {
+    throw new Error("Campaign is required");
+  }
+
   // Block if this email is already in any active campaign
   const [existing] = await db
     .select({ count: sql<number>`count(*)::int` })
@@ -53,6 +79,9 @@ export async function createLead(data: {
   }
 
   const inboxId = await assignInbox();
+  if (!inboxId) {
+    throw new Error("No active sender inboxes. Please add and activate an inbox first.");
+  }
 
   await db.insert(leads).values({
     first_name: data.first_name || null,
@@ -100,8 +129,12 @@ export async function updateLead(
   if (data.company !== undefined) set.company = data.company || null;
   if (data.title !== undefined) set.title = data.title || null;
   if (data.campaign_id !== undefined) {
+    const inboxId = await assignInbox();
+    if (!inboxId) {
+      throw new Error("No active sender inboxes. Please add and activate an inbox first.");
+    }
     set.campaign_id = data.campaign_id;
-    set.sender_inbox_id = await assignInbox();
+    set.sender_inbox_id = inboxId;
   }
 
   await db.update(leads).set(set).where(eq(leads.id, id));
@@ -129,8 +162,12 @@ export async function updateLeads(
     if (data.company !== undefined) set.company = data.company || null;
     if (data.title !== undefined) set.title = data.title || null;
     if (data.campaign_id !== undefined) {
+      const inboxId = await assignInbox();
+      if (!inboxId) {
+        throw new Error("No active sender inboxes. Please add and activate an inbox first.");
+      }
       set.campaign_id = data.campaign_id;
-      set.sender_inbox_id = await assignInbox();
+      set.sender_inbox_id = inboxId;
     }
 
     await db.update(leads).set(set).where(eq(leads.id, id));
@@ -154,6 +191,9 @@ export async function importLeads(
     .select()
     .from(senderInboxes)
     .where(eq(senderInboxes.is_active, true));
+  if (activeInboxes.length === 0) {
+    throw new Error("No active sender inboxes. Please add and activate an inbox first.");
+  }
 
   // Get existing lead emails across ALL active campaigns for dedup.
   // Prevents the same person from being in multiple campaigns simultaneously.

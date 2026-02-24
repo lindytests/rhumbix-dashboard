@@ -2,7 +2,9 @@ import { db } from "@/lib/db";
 import { appSettings, campaigns, leads, senderInboxes, sendLogs } from "@/lib/db/schema";
 import { eq, and, gte, ne, sql, isNull, inArray } from "drizzle-orm";
 
-const NEXT_EMAIL: Record<string, { emailNum: number; nextStatus: string }> = {
+type LeadStatus = (typeof leads.$inferSelect)["status"];
+
+const NEXT_EMAIL: Record<string, { emailNum: number; nextStatus: LeadStatus }> = {
   pending: { emailNum: 1, nextStatus: "email_1_sent" },
   email_1_sent: { emailNum: 2, nextStatus: "email_2_sent" },
   email_2_sent: { emailNum: 3, nextStatus: "email_3_sent" },
@@ -38,32 +40,64 @@ function addCalendarDaysSkipWeekends(start: Date, days: number): Date {
   return result;
 }
 
+type CampaignRow = typeof campaigns.$inferSelect;
+
+const EMAIL_FIELDS: Record<number, { subject: keyof CampaignRow; body: keyof CampaignRow }> = {
+  1: { subject: "email_1_subject", body: "email_1_body" },
+  2: { subject: "email_2_subject", body: "email_2_body" },
+  3: { subject: "email_3_subject", body: "email_3_body" },
+  4: { subject: "email_4_subject", body: "email_4_body" },
+  5: { subject: "email_5_subject", body: "email_5_body" },
+};
+
 function getEmailContent(
-  campaign: Record<string, unknown>,
+  campaign: CampaignRow,
   emailNum: number
 ): { subject: string; body: string } | null {
-  const subject = campaign[`email_${emailNum}_subject`] as string | null;
-  const body = campaign[`email_${emailNum}_body`] as string | null;
+  const fields = EMAIL_FIELDS[emailNum];
+  if (!fields) return null;
+  const subject = campaign[fields.subject] as string | null;
+  const body = campaign[fields.body] as string | null;
   if (!subject || !body) return null;
   return { subject, body };
 }
 
-async function rebalancePendingLeads(
+async function rebalanceLeads(
   activeInboxes: { id: string }[]
 ) {
   if (activeInboxes.length === 0) return;
 
   const activeIds = activeInboxes.map((i) => i.id);
 
-  // Get all pending, non-deleted leads (including those on inactive/null inboxes)
+  // Phase 1: Rescue orphaned in-progress leads on inactive/null inboxes
+  // These leads would never be picked up by the send batch otherwise.
+  const orphanedLeads = await db
+    .select({ id: leads.id })
+    .from(leads)
+    .where(
+      and(
+        ne(leads.status, "pending"),
+        ne(leads.status, "completed"),
+        ne(leads.status, "failed"),
+        isNull(leads.deleted_at),
+        sql`(${leads.sender_inbox_id} IS NULL OR ${leads.sender_inbox_id} NOT IN (${sql.join(activeIds.map(id => sql`${id}`), sql`, `)}))`
+      )
+    );
+
+  // Phase 2: Get all pending leads for rebalancing
   const pendingLeads = await db
     .select({ id: leads.id, sender_inbox_id: leads.sender_inbox_id })
     .from(leads)
     .where(and(eq(leads.status, "pending"), isNull(leads.deleted_at)));
 
-  if (pendingLeads.length === 0) return;
+  const allLeadsToAssign = [
+    ...orphanedLeads.map((l) => l.id),
+    ...pendingLeads.map((l) => l.id),
+  ];
 
-  // Count locked (in-progress) leads per active inbox -- these can't move
+  if (allLeadsToAssign.length === 0) return;
+
+  // Count in-progress leads already on active inboxes (these stay put)
   const lockedCounts = await db
     .select({
       sender_inbox_id: leads.sender_inbox_id,
@@ -81,18 +115,19 @@ async function rebalancePendingLeads(
     )
     .groupBy(leads.sender_inbox_id);
 
-  // Build load map: start with locked counts
+  // Build load map: start with locked counts (excluding orphans we're about to move)
+  const orphanIds = new Set(orphanedLeads.map((l) => l.id));
   const load = new Map<string, number>();
   for (const id of activeIds) load.set(id, 0);
   for (const row of lockedCounts) {
     if (row.sender_inbox_id) load.set(row.sender_inbox_id, row.count);
   }
 
-  // Greedily assign each pending lead to the least-loaded inbox
+  // Greedily assign each lead to the least-loaded inbox
   const assignments = new Map<string, string[]>(); // inboxId -> leadIds
   for (const id of activeIds) assignments.set(id, []);
 
-  for (const lead of pendingLeads) {
+  for (const leadId of allLeadsToAssign) {
     let minInbox = activeIds[0];
     let minLoad = load.get(minInbox)!;
     for (const id of activeIds) {
@@ -102,22 +137,18 @@ async function rebalancePendingLeads(
         minLoad = l;
       }
     }
-    assignments.get(minInbox)!.push(lead.id);
+    assignments.get(minInbox)!.push(leadId);
     load.set(minInbox, minLoad + 1);
   }
 
-  // Batch update per inbox (only if assignment changed)
+  // Batch update per inbox
+  const now = new Date();
   for (const [inboxId, leadIds] of assignments) {
     if (leadIds.length === 0) continue;
     await db
       .update(leads)
-      .set({ sender_inbox_id: inboxId, updated_at: new Date() })
-      .where(
-        and(
-          inArray(leads.id, leadIds),
-          eq(leads.status, "pending") // safety guard
-        )
-      );
+      .set({ sender_inbox_id: inboxId, updated_at: now })
+      .where(inArray(leads.id, leadIds));
   }
 }
 
@@ -134,8 +165,13 @@ export async function executeSendBatch(
   options: SendBatchOptions = {}
 ): Promise<SendBatchResult> {
   const now = new Date();
-  const startOfDay = new Date(now);
-  startOfDay.setHours(0, 0, 0, 0);
+  // Daily limit resets at midnight ET (consistent with business hours enforcement)
+  const etNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const etMidnight = new Date(etNow);
+  etMidnight.setHours(0, 0, 0, 0);
+  // Convert ET midnight back to UTC
+  const offsetMs = now.getTime() - etNow.getTime();
+  const startOfDay = new Date(etMidnight.getTime() + offsetMs);
   const startOfHour = new Date(now);
   startOfHour.setMinutes(0, 0, 0);
 
@@ -150,7 +186,7 @@ export async function executeSendBatch(
     .from(senderInboxes)
     .where(eq(senderInboxes.is_active, true));
 
-  await rebalancePendingLeads(activeInboxes);
+  await rebalanceLeads(activeInboxes);
 
   let totalSent = 0;
   let totalErrors = 0;
@@ -208,8 +244,11 @@ export async function executeSendBatch(
 
     for (const { lead, campaign } of eligibleLeads) {
       if (lead.status !== "pending") {
+        // In-progress lead with missing contacted_at is in a broken state — skip
+        if (!lead.contacted_at) continue;
+
         const waitDays = getWaitDays(campaign, lead.status);
-        if (waitDays !== null && lead.contacted_at) {
+        if (waitDays !== null) {
           let waitUntil: Date;
           if (testMode) {
             waitUntil = new Date(lead.contacted_at);
@@ -230,10 +269,7 @@ export async function executeSendBatch(
         continue;
       }
 
-      const content = getEmailContent(
-        campaign as unknown as Record<string, unknown>,
-        next.emailNum
-      );
+      const content = getEmailContent(campaign, next.emailNum);
       if (!content) {
         await db
           .update(leads)
@@ -283,12 +319,12 @@ export async function executeSendBatch(
       const claimed = await db
         .update(leads)
         .set({
-          status: next.nextStatus as typeof lead.status,
+          status: next.nextStatus,
           contacted_at: now,
           updated_at: now,
         })
         .where(
-          and(eq(leads.id, lead.id), eq(leads.status, lead.status as typeof lead.status))
+          and(eq(leads.id, lead.id), eq(leads.status, lead.status))
         )
         .returning({ id: leads.id });
       if (claimed.length === 0) continue;

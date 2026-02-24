@@ -207,7 +207,7 @@ export function CampaignForm() {
                         value={step.wait_days ?? 3}
                         onChange={(e) =>
                           updateStep(i, {
-                            wait_days: parseInt(e.target.value) || 3,
+                            wait_days: parseInt(e.target.value, 10) || 3,
                           })
                         }
                         className="w-8 text-center text-[11px] font-mono tabular-nums font-semibold text-foreground bg-white/80 border border-dashed border-muted-foreground/30 rounded outline-none p-0 hover:border-amber focus:border-amber focus:bg-white transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"

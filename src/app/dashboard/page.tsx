@@ -236,10 +236,10 @@ export default async function DashboardPage() {
                     {log.last_name?.[0]}
                   </div>
                   <div>
-                    <p className="text-[14px] font-semibold">
+                    <p className="text-[14px] font-semibold truncate max-w-[200px]" title={`${log.first_name ?? ""} ${log.last_name ?? ""}`.trim()}>
                       {log.first_name} {log.last_name}
                     </p>
-                    <p className="text-[12px] text-muted-foreground mt-0.5">
+                    <p className="text-[12px] text-muted-foreground mt-0.5 truncate max-w-[300px]">
                       {log.company ? `${log.company} · ` : ""}{log.campaign_name} · Email #{log.email_number}
                     </p>
                   </div>

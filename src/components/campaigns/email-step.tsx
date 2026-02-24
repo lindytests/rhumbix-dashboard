@@ -40,6 +40,7 @@ export function EmailStepEditor({
           <Button
             variant="ghost"
             size="sm"
+            aria-label={`Remove email ${index + 1}`}
             className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
             onClick={onRemove}
           >
@@ -96,7 +97,7 @@ export function EmailStepEditor({
                 onChange={(e) =>
                   onChange({
                     ...step,
-                    wait_days: parseInt(e.target.value) || 3,
+                    wait_days: parseInt(e.target.value, 10) || 3,
                   })
                 }
                 className="h-9 w-20 text-[13px] tabular-nums font-mono rounded-lg"

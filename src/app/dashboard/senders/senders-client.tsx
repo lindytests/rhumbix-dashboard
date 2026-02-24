@@ -179,7 +179,7 @@ export default function SendersClient({
                   <Input
                     type="number"
                     value={form.daily_limit}
-                    onChange={(e) => setForm({ ...form, daily_limit: parseInt(e.target.value) || 80 })}
+                    onChange={(e) => setForm({ ...form, daily_limit: parseInt(e.target.value, 10) || 80 })}
                     className="h-9 text-[13px] tabular-nums font-mono rounded-lg"
                   />
                 </div>
@@ -190,7 +190,7 @@ export default function SendersClient({
                   <Input
                     type="number"
                     value={form.hourly_limit}
-                    onChange={(e) => setForm({ ...form, hourly_limit: parseInt(e.target.value) || 10 })}
+                    onChange={(e) => setForm({ ...form, hourly_limit: parseInt(e.target.value, 10) || 10 })}
                     className="h-9 text-[13px] tabular-nums font-mono rounded-lg"
                   />
                 </div>
@@ -248,7 +248,7 @@ export default function SendersClient({
                   </div>
 
                   <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg" onClick={() => openEditDialog(inbox)}>
+                    <Button variant="ghost" size="sm" aria-label={`Edit ${inbox.email}`} className="h-8 w-8 p-0 rounded-lg" onClick={() => openEditDialog(inbox)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <Switch

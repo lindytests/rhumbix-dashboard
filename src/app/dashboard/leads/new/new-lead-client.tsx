@@ -34,6 +34,7 @@ export default function NewLeadClient({ campaigns }: NewLeadClientProps) {
   const [isPending, startTransition] = useTransition();
 
   const handleSave = () => {
+    if (isPending) return;
     if (!form.email.trim()) {
       toast.error("Email is required");
       return;
