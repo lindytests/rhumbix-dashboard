@@ -37,7 +37,7 @@ export default async function CampaignsPage() {
         </div>
         <Button
           asChild
-          className="bg-amber text-white shadow-[0_1px_2px_0_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.15)] hover:bg-amber/85 active:bg-amber/80 active:shadow-none h-9 text-[13px] font-semibold"
+          className="bg-amber text-white shadow-[0_1px_4px_-2px_rgba(0,0,0,0.025),inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:bg-amber/85 active:bg-amber/80 active:shadow-none h-9 text-[13px] font-semibold"
         >
           <Link href="/dashboard/campaigns/new">
             <Plus className="h-4 w-4 mr-1.5" />
@@ -56,7 +56,7 @@ export default async function CampaignsPage() {
               key={campaign.id}
               href={"/dashboard/campaigns/" + campaign.id}
             >
-              <Card className="bg-card rounded-xl border border-border hover:border-amber/15 hover:shadow-sm cursor-pointer">
+              <Card className="bg-card rounded-xl border border-border hover:border-amber/25 hover:shadow-[0_3px_16px_-4px_rgba(0,0,0,0.07)] cursor-pointer">
                 <CardContent className="p-5">
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
                     <div className="space-y-1.5">

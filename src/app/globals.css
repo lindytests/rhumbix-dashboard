@@ -50,6 +50,15 @@
   --radius-2xl: 0px;
   --radius-3xl: 0px;
   --radius-4xl: 0px;
+
+  --shadow-2xs: 0 1px rgb(0 0 0 / 0.015);
+  --shadow-xs: 0 1px 3px 0 rgb(0 0 0 / 0.015);
+  --shadow-sm: 0 1px 6px -1px rgb(0 0 0 / 0.02);
+  --shadow: 0 2px 12px -3px rgb(0 0 0 / 0.025);
+  --shadow-md: 0 4px 20px -6px rgb(0 0 0 / 0.03);
+  --shadow-lg: 0 8px 32px -8px rgb(0 0 0 / 0.035);
+  --shadow-xl: 0 16px 48px -12px rgb(0 0 0 / 0.04);
+  --shadow-2xl: 0 24px 64px -16px rgb(0 0 0 / 0.06);
 }
 
 :root {

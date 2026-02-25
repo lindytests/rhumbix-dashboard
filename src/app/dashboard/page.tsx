@@ -89,7 +89,7 @@ export default async function DashboardPage() {
           { label: "Completed", value: totalCompleted },
           { label: "Responded", value: totalResponded, highlight: true },
         ].map((stat) => (
-          <Card key={stat.label} className="bg-card rounded-xl border border-border hover:border-amber/20 hover:shadow-sm">
+          <Card key={stat.label} className="bg-card rounded-xl border border-border">
             <CardContent className="p-5">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
                 {stat.label}
@@ -172,7 +172,7 @@ export default async function DashboardPage() {
                 <Link
                   key={campaign.id}
                   href={"/dashboard/campaigns/" + campaign.id}
-                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-border p-4 hover:border-amber/15 hover:shadow-sm transition-[border-color,box-shadow,background-color] duration-200"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-border p-4 hover:border-amber/25 hover:shadow-[0_3px_16px_-4px_rgba(0,0,0,0.07)] transition-[border-color,box-shadow,background-color] duration-200"
                 >
                   <div>
                     <p className="text-[15px] font-semibold font-heading">

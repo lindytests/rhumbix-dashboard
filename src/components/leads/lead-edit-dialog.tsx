@@ -185,7 +185,7 @@ export function LeadEditDialog({
           <Button
             onClick={handleSave}
             disabled={isPending}
-            className="w-full bg-amber text-white shadow-[0_1px_2px_0_rgba(0,0,0,0.1),inset_0_1px_0_0_rgba(255,255,255,0.15)] hover:bg-amber/85 active:bg-amber/80 active:shadow-none h-9 text-[13px] font-semibold mt-1"
+            className="w-full bg-amber text-white shadow-[0_1px_4px_-2px_rgba(0,0,0,0.025),inset_0_1px_0_0_rgba(255,255,255,0.06)] hover:bg-amber/85 active:bg-amber/80 active:shadow-none h-9 text-[13px] font-semibold mt-1"
           >
             {isPending && (
               <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
