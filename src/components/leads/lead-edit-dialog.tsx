@@ -10,28 +10,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { updateLead } from "@/lib/actions/leads";
 import { toast } from "sonner";
-import type { Lead, Campaign } from "@/lib/types";
+import type { Lead } from "@/lib/types";
 
 interface LeadEditDialogProps {
   lead: Lead | null;
-  campaigns: Campaign[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export function LeadEditDialog({
   lead,
-  campaigns,
   open,
   onOpenChange,
 }: LeadEditDialogProps) {
@@ -41,7 +32,6 @@ export function LeadEditDialog({
     email: "",
     company: "",
     title: "",
-    campaign_id: "",
   });
   const [isPending, startTransition] = useTransition();
 
@@ -55,7 +45,6 @@ export function LeadEditDialog({
       email: lead.email,
       company: lead.company ?? "",
       title: lead.title ?? "",
-      campaign_id: lead.campaign_id,
     });
   }
   if (!lead && prevLeadId !== null) {
@@ -68,10 +57,6 @@ export function LeadEditDialog({
       toast.error("Email is required");
       return;
     }
-    if (!form.campaign_id) {
-      toast.error("Please select a campaign");
-      return;
-    }
     startTransition(async () => {
       await updateLead(lead.id, {
         first_name: form.first_name,
@@ -79,7 +64,6 @@ export function LeadEditDialog({
         email: form.email,
         company: form.company,
         title: form.title,
-        campaign_id: form.campaign_id,
       });
       toast.success("Lead updated");
       onOpenChange(false);
@@ -159,27 +143,6 @@ export function LeadEditDialog({
               className="h-9 text-[13px] rounded-lg"
               placeholder="VP of Operations"
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Campaign
-            </Label>
-            <Select
-              value={form.campaign_id}
-              onValueChange={(v) => setForm({ ...form, campaign_id: v })}
-            >
-              <SelectTrigger className="h-9 text-[13px] rounded-lg">
-                <SelectValue placeholder="Select campaign" />
-              </SelectTrigger>
-              <SelectContent>
-                {campaigns.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <Button

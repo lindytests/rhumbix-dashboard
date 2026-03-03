@@ -52,30 +52,43 @@ export async function createLead(data: {
   email: string;
   company: string;
   title: string;
-  campaign_id: string;
+  email_1_subject: string;
+  email_1_body: string;
+  wait_after_email_1?: number;
+  email_2_subject?: string;
+  email_2_body?: string;
+  wait_after_email_2?: number;
+  email_3_subject?: string;
+  email_3_body?: string;
+  wait_after_email_3?: number;
+  email_4_subject?: string;
+  email_4_body?: string;
+  wait_after_email_4?: number;
+  email_5_subject?: string;
+  email_5_body?: string;
 }) {
   const email = data.email.trim().toLowerCase();
   if (!email || !EMAIL_RE.test(email)) {
     throw new Error("Please enter a valid email address");
   }
-  if (!data.campaign_id) {
-    throw new Error("Campaign is required");
+  if (!data.email_1_subject || !data.email_1_body) {
+    throw new Error("At least Email 1 subject and body are required");
   }
 
-  // Block if this email is already in any active campaign
+  // Block if this email is already active
   const [existing] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(leads)
     .where(
       and(
-        eq(leads.email, data.email.trim().toLowerCase()),
+        eq(leads.email, email),
         ne(leads.status, "completed"),
         ne(leads.status, "failed"),
         isNull(leads.deleted_at)
       )
     );
   if ((existing?.count ?? 0) > 0) {
-    throw new Error("This email is already in an active campaign");
+    throw new Error("This email already has an active sequence");
   }
 
   const inboxId = await assignInbox();
@@ -86,11 +99,24 @@ export async function createLead(data: {
   await db.insert(leads).values({
     first_name: data.first_name || null,
     last_name: data.last_name || null,
-    email: data.email,
+    email,
     company: data.company || null,
     title: data.title || null,
-    campaign_id: data.campaign_id,
     sender_inbox_id: inboxId,
+    email_1_subject: data.email_1_subject,
+    email_1_body: data.email_1_body,
+    wait_after_email_1: data.wait_after_email_1 ?? null,
+    email_2_subject: data.email_2_subject || null,
+    email_2_body: data.email_2_body || null,
+    wait_after_email_2: data.wait_after_email_2 ?? null,
+    email_3_subject: data.email_3_subject || null,
+    email_3_body: data.email_3_body || null,
+    wait_after_email_3: data.wait_after_email_3 ?? null,
+    email_4_subject: data.email_4_subject || null,
+    email_4_body: data.email_4_body || null,
+    wait_after_email_4: data.wait_after_email_4 ?? null,
+    email_5_subject: data.email_5_subject || null,
+    email_5_body: data.email_5_body || null,
   });
 
   revalidatePath("/dashboard");
@@ -117,7 +143,6 @@ export async function updateLead(
     email?: string;
     company?: string;
     title?: string;
-    campaign_id?: string;
   }
 ) {
   const now = new Date();
@@ -128,14 +153,6 @@ export async function updateLead(
   if (data.email !== undefined) set.email = data.email;
   if (data.company !== undefined) set.company = data.company || null;
   if (data.title !== undefined) set.title = data.title || null;
-  if (data.campaign_id !== undefined) {
-    const inboxId = await assignInbox();
-    if (!inboxId) {
-      throw new Error("No active sender inboxes. Please add and activate an inbox first.");
-    }
-    set.campaign_id = data.campaign_id;
-    set.sender_inbox_id = inboxId;
-  }
 
   await db.update(leads).set(set).where(eq(leads.id, id));
   revalidatePath("/dashboard");
@@ -148,7 +165,6 @@ export async function updateLeads(
     last_name?: string;
     company?: string;
     title?: string;
-    campaign_id?: string;
   }
 ) {
   if (ids.length === 0) return;
@@ -161,14 +177,6 @@ export async function updateLeads(
     if (data.last_name !== undefined) set.last_name = data.last_name || null;
     if (data.company !== undefined) set.company = data.company || null;
     if (data.title !== undefined) set.title = data.title || null;
-    if (data.campaign_id !== undefined) {
-      const inboxId = await assignInbox();
-      if (!inboxId) {
-        throw new Error("No active sender inboxes. Please add and activate an inbox first.");
-      }
-      set.campaign_id = data.campaign_id;
-      set.sender_inbox_id = inboxId;
-    }
 
     await db.update(leads).set(set).where(eq(leads.id, id));
   }
@@ -183,8 +191,21 @@ export async function importLeads(
     last_name?: string;
     company?: string;
     title?: string;
-  }[],
-  campaignId: string
+    email_1_subject?: string;
+    email_1_body?: string;
+    wait_after_email_1?: number;
+    email_2_subject?: string;
+    email_2_body?: string;
+    wait_after_email_2?: number;
+    email_3_subject?: string;
+    email_3_body?: string;
+    wait_after_email_3?: number;
+    email_4_subject?: string;
+    email_4_body?: string;
+    wait_after_email_4?: number;
+    email_5_subject?: string;
+    email_5_body?: string;
+  }[]
 ): Promise<{ imported: number; duplicates: number }> {
   // Get active inboxes for round-robin
   const activeInboxes = await db
@@ -195,8 +216,7 @@ export async function importLeads(
     throw new Error("No active sender inboxes. Please add and activate an inbox first.");
   }
 
-  // Get existing lead emails across ALL active campaigns for dedup.
-  // Prevents the same person from being in multiple campaigns simultaneously.
+  // Get existing active lead emails for dedup
   const existingLeads = await db
     .select({ email: leads.email })
     .from(leads)
@@ -223,7 +243,7 @@ export async function importLeads(
     }
     seenEmails.add(email);
 
-    // Round-robin: assign based on position in toInsert
+    // Round-robin inbox assignment
     const inboxId =
       activeInboxes.length > 0
         ? activeInboxes[toInsert.length % activeInboxes.length].id
@@ -235,8 +255,21 @@ export async function importLeads(
       last_name: row.last_name || null,
       company: row.company || null,
       title: row.title || null,
-      campaign_id: campaignId,
       sender_inbox_id: inboxId,
+      email_1_subject: row.email_1_subject || null,
+      email_1_body: row.email_1_body || null,
+      wait_after_email_1: row.wait_after_email_1 ?? null,
+      email_2_subject: row.email_2_subject || null,
+      email_2_body: row.email_2_body || null,
+      wait_after_email_2: row.wait_after_email_2 ?? null,
+      email_3_subject: row.email_3_subject || null,
+      email_3_body: row.email_3_body || null,
+      wait_after_email_3: row.wait_after_email_3 ?? null,
+      email_4_subject: row.email_4_subject || null,
+      email_4_body: row.email_4_body || null,
+      wait_after_email_4: row.wait_after_email_4 ?? null,
+      email_5_subject: row.email_5_subject || null,
+      email_5_body: row.email_5_body || null,
     });
   }
 

@@ -1,24 +1,3 @@
-export interface Campaign {
-  id: string;
-  name: string;
-  email_1_subject: string;
-  email_1_body: string;
-  wait_after_email_1: number | null;
-  email_2_subject: string | null;
-  email_2_body: string | null;
-  wait_after_email_2: number | null;
-  email_3_subject: string | null;
-  email_3_body: string | null;
-  wait_after_email_3: number | null;
-  email_4_subject: string | null;
-  email_4_body: string | null;
-  wait_after_email_4: number | null;
-  email_5_subject: string | null;
-  email_5_body: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 export type LeadStatus =
   | "pending"
   | "email_1_sent"
@@ -36,8 +15,7 @@ export interface Lead {
   email: string;
   company: string | null;
   title: string | null;
-  campaign_id: string;
-  campaign_name?: string;
+  campaign_id: string | null;
   sender_inbox_id: string | null;
   sender_email?: string;
   status: LeadStatus;
@@ -46,6 +24,22 @@ export interface Lead {
   next_send_date: string | null;
   created_at: string;
   updated_at: string;
+
+  // Per-lead email content
+  email_1_subject: string | null;
+  email_1_body: string | null;
+  wait_after_email_1: number | null;
+  email_2_subject: string | null;
+  email_2_body: string | null;
+  wait_after_email_2: number | null;
+  email_3_subject: string | null;
+  email_3_body: string | null;
+  wait_after_email_3: number | null;
+  email_4_subject: string | null;
+  email_4_body: string | null;
+  wait_after_email_4: number | null;
+  email_5_subject: string | null;
+  email_5_body: string | null;
 }
 
 export interface SenderInbox {
@@ -69,16 +63,6 @@ export interface SendLog {
   status: "sent" | "failed" | "bounced";
 }
 
-export interface CampaignStats {
-  id: string;
-  name: string;
-  total_leads: number;
-  pending: number;
-  in_progress: number;
-  completed: number;
-  responded: number;
-}
-
 export interface InboxStats {
   id: string;
   email: string;
@@ -97,16 +81,11 @@ export interface SendLogEntry {
   last_name: string | null;
   email: string;
   company: string | null;
-  campaign_id: string;
-  campaign_name: string;
   sender_email: string;
   email_number: number;
+  email_subject: string | null;
+  email_body: string | null;
+  lead_deleted: boolean;
   status: "sent" | "failed" | "bounced";
   sent_at: string;
-}
-
-export interface EmailStep {
-  subject: string;
-  body: string;
-  wait_days: number | null;
 }

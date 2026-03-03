@@ -10,22 +10,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { updateLeads } from "@/lib/actions/leads";
 import { toast } from "sonner";
-import type { Lead, Campaign } from "@/lib/types";
+import type { Lead } from "@/lib/types";
 
 interface BulkEditDialogProps {
   leads: Lead[];
   selectedIds: Set<string>;
-  campaigns: Campaign[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -43,7 +35,6 @@ function getSharedValue(
 export function BulkEditDialog({
   leads,
   selectedIds,
-  campaigns,
   open,
   onOpenChange,
 }: BulkEditDialogProps) {
@@ -53,7 +44,6 @@ export function BulkEditDialog({
     last_name: "",
     company: "",
     title: "",
-    campaign_id: "",
   });
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const [isPending, startTransition] = useTransition();
@@ -66,7 +56,6 @@ export function BulkEditDialog({
       last_name: getSharedValue(selectedLeads, "last_name") ?? "",
       company: getSharedValue(selectedLeads, "company") ?? "",
       title: getSharedValue(selectedLeads, "title") ?? "",
-      campaign_id: getSharedValue(selectedLeads, "campaign_id") ?? "",
     };
     setForm(newForm);
     setTouched(new Set());
@@ -161,33 +150,6 @@ export function BulkEditDialog({
               className="h-9 text-[13px] rounded-lg"
               placeholder={placeholder("title") ?? "Title"}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Campaign
-            </Label>
-            <Select
-              value={form.campaign_id}
-              onValueChange={(v) => updateField("campaign_id", v)}
-            >
-              <SelectTrigger className="h-9 text-[13px] rounded-lg">
-                <SelectValue
-                  placeholder={
-                    getSharedValue(selectedLeads, "campaign_id") === null
-                      ? "Multiple campaigns"
-                      : "Select campaign"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {campaigns.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           <Button

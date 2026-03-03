@@ -1,8 +1,9 @@
 import { db } from "@/lib/db";
-import { appSettings, campaigns, leads, senderInboxes, sendLogs } from "@/lib/db/schema";
-import { eq, and, gte, ne, sql, isNull, inArray } from "drizzle-orm";
+import { appSettings, leads, senderInboxes, sendLogs } from "@/lib/db/schema";
+import { eq, and, gte, ne, sql, isNull, inArray, asc } from "drizzle-orm";
 
 type LeadStatus = (typeof leads.$inferSelect)["status"];
+type LeadRow = typeof leads.$inferSelect;
 
 const NEXT_EMAIL: Record<string, { emailNum: number; nextStatus: LeadStatus }> = {
   pending: { emailNum: 1, nextStatus: "email_1_sent" },
@@ -12,20 +13,23 @@ const NEXT_EMAIL: Record<string, { emailNum: number; nextStatus: LeadStatus }> =
   email_4_sent: { emailNum: 5, nextStatus: "email_5_sent" },
 };
 
+const SENDABLE_STATUSES: LeadStatus[] = [
+  "pending",
+  "email_1_sent",
+  "email_2_sent",
+  "email_3_sent",
+  "email_4_sent",
+];
+
 function getWaitDays(
-  campaign: {
-    wait_after_email_1: number | null;
-    wait_after_email_2: number | null;
-    wait_after_email_3: number | null;
-    wait_after_email_4: number | null;
-  },
+  lead: LeadRow,
   currentStatus: string
 ): number | null {
   const map: Record<string, number | null> = {
-    email_1_sent: campaign.wait_after_email_1,
-    email_2_sent: campaign.wait_after_email_2,
-    email_3_sent: campaign.wait_after_email_3,
-    email_4_sent: campaign.wait_after_email_4,
+    email_1_sent: lead.wait_after_email_1,
+    email_2_sent: lead.wait_after_email_2,
+    email_3_sent: lead.wait_after_email_3,
+    email_4_sent: lead.wait_after_email_4,
   };
   return map[currentStatus] ?? null;
 }
@@ -40,9 +44,7 @@ function addCalendarDaysSkipWeekends(start: Date, days: number): Date {
   return result;
 }
 
-type CampaignRow = typeof campaigns.$inferSelect;
-
-const EMAIL_FIELDS: Record<number, { subject: keyof CampaignRow; body: keyof CampaignRow }> = {
+const EMAIL_FIELDS: Record<number, { subject: keyof LeadRow; body: keyof LeadRow }> = {
   1: { subject: "email_1_subject", body: "email_1_body" },
   2: { subject: "email_2_subject", body: "email_2_body" },
   3: { subject: "email_3_subject", body: "email_3_body" },
@@ -51,13 +53,13 @@ const EMAIL_FIELDS: Record<number, { subject: keyof CampaignRow; body: keyof Cam
 };
 
 function getEmailContent(
-  campaign: CampaignRow,
+  lead: LeadRow,
   emailNum: number
 ): { subject: string; body: string } | null {
   const fields = EMAIL_FIELDS[emailNum];
   if (!fields) return null;
-  const subject = campaign[fields.subject] as string | null;
-  const body = campaign[fields.body] as string | null;
+  const subject = lead[fields.subject] as string | null;
+  const body = lead[fields.body] as string | null;
   if (!subject || !body) return null;
   return { subject, body };
 }
@@ -70,7 +72,6 @@ async function rebalanceLeads(
   const activeIds = activeInboxes.map((i) => i.id);
 
   // Phase 1: Rescue orphaned in-progress leads on inactive/null inboxes
-  // These leads would never be picked up by the send batch otherwise.
   const orphanedLeads = await db
     .select({ id: leads.id })
     .from(leads)
@@ -115,8 +116,7 @@ async function rebalanceLeads(
     )
     .groupBy(leads.sender_inbox_id);
 
-  // Build load map: start with locked counts (excluding orphans we're about to move)
-  const orphanIds = new Set(orphanedLeads.map((l) => l.id));
+  // Build load map
   const load = new Map<string, number>();
   for (const id of activeIds) load.set(id, 0);
   for (const row of lockedCounts) {
@@ -124,7 +124,7 @@ async function rebalanceLeads(
   }
 
   // Greedily assign each lead to the least-loaded inbox
-  const assignments = new Map<string, string[]>(); // inboxId -> leadIds
+  const assignments = new Map<string, string[]>();
   for (const id of activeIds) assignments.set(id, []);
 
   for (const leadId of allLeadsToAssign) {
@@ -152,18 +152,12 @@ async function rebalanceLeads(
   }
 }
 
-export interface SendBatchOptions {
-  campaignId?: string;
-}
-
 export interface SendBatchResult {
   sent: number;
   errors: number;
 }
 
-export async function executeSendBatch(
-  options: SendBatchOptions = {}
-): Promise<SendBatchResult> {
+export async function executeSendBatch(): Promise<SendBatchResult> {
   const now = new Date();
   // Daily limit resets at midnight ET (consistent with business hours enforcement)
   const etNow = new Date(now.toLocaleString("en-US", { timeZone: "America/New_York" }));
@@ -187,6 +181,12 @@ export async function executeSendBatch(
     .where(eq(senderInboxes.is_active, true));
 
   await rebalanceLeads(activeInboxes);
+
+  // Cleanup: auto-complete any email_5_sent leads (sequence finished).
+  await db
+    .update(leads)
+    .set({ status: "completed", updated_at: now })
+    .where(and(eq(leads.status, "email_5_sent"), isNull(leads.deleted_at)));
 
   let totalSent = 0;
   let totalErrors = 0;
@@ -220,34 +220,26 @@ export async function executeSendBatch(
 
     if (batchSize <= 0) continue;
 
-    const conditions = [
-      eq(leads.sender_inbox_id, inbox.id),
-      ne(leads.status, "completed"),
-      ne(leads.status, "failed"),
-      eq(leads.response_received, false),
-      isNull(leads.deleted_at),
-    ];
-
-    if (options.campaignId) {
-      conditions.push(eq(leads.campaign_id, options.campaignId));
-    }
-
     const eligibleLeads = await db
-      .select({
-        lead: leads,
-        campaign: campaigns,
-      })
+      .select()
       .from(leads)
-      .innerJoin(campaigns, eq(leads.campaign_id, campaigns.id))
-      .where(and(...conditions))
+      .where(
+        and(
+          eq(leads.sender_inbox_id, inbox.id),
+          inArray(leads.status, [...SENDABLE_STATUSES]),
+          eq(leads.response_received, false),
+          isNull(leads.deleted_at),
+        )
+      )
+      .orderBy(asc(leads.contacted_at))
       .limit(batchSize);
 
-    for (const { lead, campaign } of eligibleLeads) {
+    for (const lead of eligibleLeads) {
       if (lead.status !== "pending") {
         // In-progress lead with missing contacted_at is in a broken state — skip
         if (!lead.contacted_at) continue;
 
-        const waitDays = getWaitDays(campaign, lead.status);
+        const waitDays = getWaitDays(lead, lead.status);
         if (waitDays !== null) {
           let waitUntil: Date;
           if (testMode) {
@@ -255,6 +247,9 @@ export async function executeSendBatch(
             waitUntil.setMinutes(waitUntil.getMinutes() + waitDays);
           } else {
             waitUntil = addCalendarDaysSkipWeekends(new Date(lead.contacted_at), waitDays);
+            // Truncate to start of day so any business-hours cron on this date
+            // processes the lead.
+            waitUntil.setUTCHours(0, 0, 0, 0);
           }
           if (now < waitUntil) continue;
         }
@@ -269,7 +264,7 @@ export async function executeSendBatch(
         continue;
       }
 
-      const content = getEmailContent(campaign, next.emailNum);
+      const content = getEmailContent(lead, next.emailNum);
       if (!content) {
         await db
           .update(leads)
@@ -278,31 +273,26 @@ export async function executeSendBatch(
         continue;
       }
 
-      // GUARD 1: Check send_logs across ALL leads (including soft-deleted)
-      // with the same email + campaign. This prevents duplicate sends when a
-      // lead is deleted and re-added to the same campaign.
+      // GUARD 1: Dedup — check if this exact email number was already sent for this lead
       const [alreadySent] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(sendLogs)
-        .innerJoin(leads, eq(sendLogs.lead_id, leads.id))
         .where(
           and(
-            eq(leads.email, lead.email),
-            eq(leads.campaign_id, lead.campaign_id),
+            eq(sendLogs.lead_id, lead.id),
             eq(sendLogs.email_number, next.emailNum),
             eq(sendLogs.status, "sent")
           )
         );
       if ((alreadySent?.count ?? 0) > 0) continue;
 
+      // Bounce check
       const [hasBounce] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(sendLogs)
-        .innerJoin(leads, eq(sendLogs.lead_id, leads.id))
         .where(
           and(
-            eq(leads.email, lead.email),
-            eq(leads.campaign_id, lead.campaign_id),
+            eq(sendLogs.lead_id, lead.id),
             eq(sendLogs.status, "bounced")
           )
         );
@@ -314,8 +304,7 @@ export async function executeSendBatch(
         continue;
       }
 
-      // GUARD 2: Optimistic claim — atomically advance status before sending.
-      // If another concurrent run already claimed this lead, 0 rows update and we skip.
+      // GUARD 2: Optimistic claim
       const claimed = await db
         .update(leads)
         .set({

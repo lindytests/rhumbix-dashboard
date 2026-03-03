@@ -7,7 +7,6 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
-  Megaphone,
   Users,
   Settings,
   Inbox,
@@ -18,7 +17,6 @@ import {
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/dashboard/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/dashboard/leads", label: "Leads", icon: Users },
   { href: "/dashboard/senders", label: "Senders", icon: Inbox },
   { href: "/dashboard/log", label: "Log", icon: ScrollText },

@@ -74,14 +74,30 @@ export const leads = pgTable("leads", {
   company: text("company"),
   title: text("title"),
   campaign_id: uuid("campaign_id")
-    .notNull()
-    .references(() => campaigns.id, { onDelete: "cascade" }),
+    .references(() => campaigns.id, { onDelete: "set null" }),
   sender_inbox_id: uuid("sender_inbox_id").references(() => senderInboxes.id, {
     onDelete: "set null",
   }),
   status: leadStatusEnum("status").notNull().default("pending"),
   contacted_at: timestamp("contacted_at", { withTimezone: true }),
   response_received: boolean("response_received").notNull().default(false),
+
+  // Per-lead email content (replaces campaign-level templates)
+  email_1_subject: text("email_1_subject"),
+  email_1_body: text("email_1_body"),
+  wait_after_email_1: integer("wait_after_email_1"),
+  email_2_subject: text("email_2_subject"),
+  email_2_body: text("email_2_body"),
+  wait_after_email_2: integer("wait_after_email_2"),
+  email_3_subject: text("email_3_subject"),
+  email_3_body: text("email_3_body"),
+  wait_after_email_3: integer("wait_after_email_3"),
+  email_4_subject: text("email_4_subject"),
+  email_4_body: text("email_4_body"),
+  wait_after_email_4: integer("wait_after_email_4"),
+  email_5_subject: text("email_5_subject"),
+  email_5_body: text("email_5_body"),
+
   created_at: timestamp("created_at", { withTimezone: true })
     .defaultNow()
     .notNull(),

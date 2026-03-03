@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { appSettings, campaigns, leads, senderInboxes, sendLogs, leadStatusEnum } from "@/lib/db/schema";
+import { appSettings, leads, senderInboxes, sendLogs, leadStatusEnum } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { executeSendBatch } from "@/lib/send-engine";
@@ -54,15 +54,8 @@ export async function manualSendBatch(): Promise<{
   return result;
 }
 
-export async function manualSendCampaign(
-  campaignId: string
-): Promise<{ sent: number; errors: number }> {
-  const result = await executeSendBatch({ campaignId });
-  revalidatePath("/dashboard");
-  return result;
-}
-
 type LeadStatus = (typeof leadStatusEnum.enumValues)[number];
+type LeadRow = typeof leads.$inferSelect;
 
 const NEXT_EMAIL: Record<string, { emailNum: number; nextStatus: LeadStatus }> = {
   pending: { emailNum: 1, nextStatus: "email_1_sent" },
@@ -72,9 +65,7 @@ const NEXT_EMAIL: Record<string, { emailNum: number; nextStatus: LeadStatus }> =
   email_4_sent: { emailNum: 5, nextStatus: "email_5_sent" },
 };
 
-type CampaignRow = typeof campaigns.$inferSelect;
-
-const EMAIL_FIELDS: Record<number, { subject: keyof CampaignRow; body: keyof CampaignRow }> = {
+const EMAIL_FIELDS: Record<number, { subject: keyof LeadRow; body: keyof LeadRow }> = {
   1: { subject: "email_1_subject", body: "email_1_body" },
   2: { subject: "email_2_subject", body: "email_2_body" },
   3: { subject: "email_3_subject", body: "email_3_body" },
@@ -83,13 +74,13 @@ const EMAIL_FIELDS: Record<number, { subject: keyof CampaignRow; body: keyof Cam
 };
 
 function getEmailContent(
-  campaign: CampaignRow,
+  lead: LeadRow,
   emailNum: number
 ): { subject: string; body: string } | null {
   const fields = EMAIL_FIELDS[emailNum];
   if (!fields) return null;
-  const subject = campaign[fields.subject] as string | null;
-  const body = campaign[fields.body] as string | null;
+  const subject = lead[fields.subject] as string | null;
+  const body = lead[fields.body] as string | null;
   if (!subject || !body) return null;
   return { subject, body };
 }
@@ -99,11 +90,10 @@ export async function sendSingleLead(
 ): Promise<{ success: boolean; error?: string }> {
   const now = new Date();
 
-  // Fetch lead + campaign + sender inbox
+  // Fetch lead + sender inbox (no campaign join needed)
   const [row] = await db
-    .select({ lead: leads, campaign: campaigns, inbox: senderInboxes })
+    .select({ lead: leads, inbox: senderInboxes })
     .from(leads)
-    .innerJoin(campaigns, eq(leads.campaign_id, campaigns.id))
     .innerJoin(senderInboxes, eq(leads.sender_inbox_id, senderInboxes.id))
     .where(eq(leads.id, leadId));
 
@@ -111,9 +101,8 @@ export async function sendSingleLead(
     return { success: false, error: "Lead not found or no sender assigned" };
   }
 
-  const { lead, campaign, inbox } = row;
+  const { lead, inbox } = row;
 
-  // Validate status
   if (lead.status === "completed" || lead.status === "failed") {
     return { success: false, error: "Lead is already completed or failed" };
   }
@@ -121,15 +110,13 @@ export async function sendSingleLead(
     return { success: false, error: "Lead has already responded" };
   }
 
-  // Determine next email in sequence
   const next = NEXT_EMAIL[lead.status];
   if (!next) {
     return { success: false, error: "No more emails in the sequence" };
   }
 
-  const content = getEmailContent(campaign, next.emailNum);
+  const content = getEmailContent(lead, next.emailNum);
   if (!content) {
-    // No email content configured for this step — mark completed
     await db
       .update(leads)
       .set({ status: "completed", updated_at: now })
@@ -138,32 +125,28 @@ export async function sendSingleLead(
     return { success: false, error: "No email content configured for next step; lead marked completed" };
   }
 
-  // GUARD 1: Duplicate check across all leads (including soft-deleted)
+  // GUARD 1: Dedup check
   const [alreadySent] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(sendLogs)
-    .innerJoin(leads, eq(sendLogs.lead_id, leads.id))
     .where(
       and(
-        eq(leads.email, lead.email),
-        eq(leads.campaign_id, lead.campaign_id),
+        eq(sendLogs.lead_id, lead.id),
         eq(sendLogs.email_number, next.emailNum),
         eq(sendLogs.status, "sent")
       )
     );
   if ((alreadySent?.count ?? 0) > 0) {
-    return { success: false, error: "This email was already sent to this address" };
+    return { success: false, error: "This email was already sent" };
   }
 
   // GUARD 2: Bounce check
   const [hasBounce] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(sendLogs)
-    .innerJoin(leads, eq(sendLogs.lead_id, leads.id))
     .where(
       and(
-        eq(leads.email, lead.email),
-        eq(leads.campaign_id, lead.campaign_id),
+        eq(sendLogs.lead_id, lead.id),
         eq(sendLogs.status, "bounced")
       )
     );
@@ -192,7 +175,6 @@ export async function sendSingleLead(
     return { success: false, error: "Lead status changed concurrently, please refresh" };
   }
 
-  // Send via webhook (skip cooldown — manual override)
   try {
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -234,7 +216,6 @@ export async function sendSingleLead(
     revalidatePath("/dashboard/leads");
     return { success: true };
   } catch {
-    // Roll back optimistic claim
     await db
       .update(leads)
       .set({

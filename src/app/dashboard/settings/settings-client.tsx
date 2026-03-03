@@ -143,7 +143,7 @@ export default function SettingsClient({
                 </p>
                 <p className="text-[13px] text-muted-foreground mt-0.5">
                   Wait periods use minutes instead of days. A &quot;wait 3
-                  days&quot; campaign step becomes 3 minutes.
+                  days&quot; email step becomes 3 minutes.
                 </p>
               </div>
               <Switch
