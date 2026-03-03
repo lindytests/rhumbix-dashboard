@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useTransition } from "react";
+import { useState, useCallback, useTransition, Fragment } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
@@ -622,9 +622,8 @@ export default function ImportClient() {
                     const emailCount = countEmails(row);
                     const isExpanded = expandedRow === i;
                     return (
-                      <>
+                      <Fragment key={i}>
                         <TableRow
-                          key={i}
                           className="hover:bg-muted/40 cursor-pointer"
                           onClick={() => setExpandedRow(isExpanded ? null : i)}
                         >
@@ -653,7 +652,7 @@ export default function ImportClient() {
                           </TableCell>
                         </TableRow>
                         {isExpanded && (
-                          <TableRow key={`${i}-detail`} className="hover:bg-transparent">
+                          <TableRow className="hover:bg-transparent">
                             <TableCell colSpan={5} className="py-0">
                               <div className="py-3 px-2 space-y-3 border-l-2 border-amber ml-2 mb-2">
                                 {Array.from({ length: emailCount }, (_, n) => {
@@ -677,7 +676,7 @@ export default function ImportClient() {
                             </TableCell>
                           </TableRow>
                         )}
-                      </>
+                      </Fragment>
                     );
                   })}
                 </TableBody>
