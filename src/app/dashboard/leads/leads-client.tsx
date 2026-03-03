@@ -639,29 +639,25 @@ export default function LeadsClient({ leads, autoSendEnabled }: LeadsClientProps
                                   : 'opacity 150ms cubic-bezier(0.16, 1, 0.3, 1)',
                               }}
                             >
-                              <div className="flex items-center gap-2 mb-3">
+                              <div className="flex items-center gap-2 mb-4">
                                 <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                                 <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                                   Email Sequence ({steps.length} email{steps.length !== 1 ? "s" : ""})
                                 </span>
                               </div>
 
-                              <div className="space-y-0">
+                              <div className="ml-0.5">
                                 {steps.map((step, i) => {
                                   const stepStatus = getStepStatus(step.num, lead.status);
                                   const config = stepStatusConfig[stepStatus];
-                                  const borderColor =
-                                    stepStatus === "sent"
-                                      ? "border-emerald-400/60"
-                                      : stepStatus === "next"
-                                        ? "border-amber/50"
-                                        : stepStatus === "failed"
-                                          ? "border-red-300/60"
-                                          : "border-border";
+                                  const isFirst = i === 0;
+                                  const isLast = i === steps.length - 1;
+                                  const hasWait = !isLast && step.waitAfter != null && step.waitAfter > 0;
 
                                   return (
                                     <div
                                       key={step.num}
+                                      className="relative"
                                       style={{
                                         opacity: isExpanded ? 1 : 0,
                                         transform: isExpanded ? 'translateY(0)' : 'translateY(4px)',
@@ -670,26 +666,33 @@ export default function LeadsClient({ leads, autoSendEnabled }: LeadsClientProps
                                           : 'opacity 100ms, transform 100ms',
                                       }}
                                     >
-                                      {/* Wait time connector between emails */}
-                                      {i > 0 && steps[i - 1].waitAfter != null && (
-                                        <div className="flex items-center gap-2 ml-[7px] py-0.5">
-                                          <div className="w-px h-5 bg-border" />
-                                          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                                            <Clock className="h-3 w-3" />
-                                            <span>
-                                              {steps[i - 1].waitAfter} day{steps[i - 1].waitAfter !== 1 ? "s" : ""}
-                                            </span>
-                                          </div>
-                                        </div>
+                                      {/* Timeline rail */}
+                                      {steps.length > 1 && (
+                                        <div
+                                          className="absolute left-[4px] w-px bg-border"
+                                          style={{
+                                            top: isFirst ? '8px' : '0',
+                                            ...(isLast ? { height: '8px' } : { bottom: '0' }),
+                                          }}
+                                        />
                                       )}
 
-                                      {/* Email step */}
+                                      {/* Timeline dot */}
                                       <div
                                         className={cn(
-                                          "border-l-2 pl-4 py-2.5",
-                                          borderColor
+                                          "absolute left-0 top-1 w-[9px] h-[9px] rounded-full z-10",
+                                          stepStatus === "sent"
+                                            ? "bg-emerald-500"
+                                            : stepStatus === "next"
+                                              ? "bg-amber"
+                                              : stepStatus === "failed"
+                                                ? "bg-red-500"
+                                                : "bg-muted-foreground/25"
                                         )}
-                                      >
+                                      />
+
+                                      {/* Step content */}
+                                      <div className="pl-5">
                                         <div className="flex items-center gap-2">
                                           <span className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
                                             Email {step.num}
@@ -711,6 +714,17 @@ export default function LeadsClient({ leads, autoSendEnabled }: LeadsClientProps
                                             <EmailBodyPreview body={step.body} />
                                           </div>
                                         )}
+
+                                        {/* Wait indicator */}
+                                        {hasWait && (
+                                          <div className="flex items-center gap-1.5 pt-3 pb-2 text-[11px] text-muted-foreground">
+                                            <Clock className="h-3 w-3 shrink-0" />
+                                            <span>{step.waitAfter} day{step.waitAfter !== 1 ? "s" : ""}</span>
+                                          </div>
+                                        )}
+
+                                        {/* Spacing between steps when no wait */}
+                                        {!isLast && !hasWait && <div className="h-4" />}
                                       </div>
                                     </div>
                                   );
