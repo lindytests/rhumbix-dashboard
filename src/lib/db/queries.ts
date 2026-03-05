@@ -322,12 +322,12 @@ function nextBusinessOpen(date: Date): Date {
   const day = et.getDay();
   const hour = et.getHours();
 
-  if (day >= 1 && day <= 5 && hour >= 9 && hour < 17) {
+  if (day >= 1 && day <= 5 && hour >= 7 && hour < 19) {
     return date;
   }
 
   let daysToAdd = 0;
-  if (day >= 1 && day <= 5 && hour < 9) {
+  if (day >= 1 && day <= 5 && hour < 7) {
     daysToAdd = 0;
   } else if (day === 5) {
     daysToAdd = 3;
@@ -348,7 +348,7 @@ function nextBusinessOpen(date: Date): Date {
   const etRepr = new Date(probe.toLocaleString("en-US", { timeZone: "America/New_York" }));
   const probeOffsetMs = utcRepr.getTime() - etRepr.getTime();
 
-  return new Date(Date.UTC(targetYear, targetMonth, targetDay, 9, 0, 0) + probeOffsetMs);
+  return new Date(Date.UTC(targetYear, targetMonth, targetDay, 7, 0, 0) + probeOffsetMs);
 }
 
 function addCalendarDaysSkipWeekends(start: Date, days: number): Date {
@@ -413,7 +413,6 @@ function rowToLead(
     email: row.email,
     company: row.company,
     title: row.title,
-    campaign_id: row.campaign_id,
     sender_inbox_id: row.sender_inbox_id,
     sender_email: senderEmail ?? undefined,
     status: row.status,

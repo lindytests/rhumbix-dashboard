@@ -21,7 +21,7 @@ function isBusinessHours(): boolean {
   );
   const day = est.getDay();
   const hour = est.getHours();
-  return day >= 1 && day <= 5 && hour >= 9 && hour < 17;
+  return day >= 1 && day <= 5 && hour >= 7 && hour < 19;
 }
 
 export async function GET(request: NextRequest) {
