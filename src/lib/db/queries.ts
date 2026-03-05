@@ -312,8 +312,8 @@ export async function getEligibleLeadCount(): Promise<number> {
 // ── Row mappers ────────────────────────────────────────
 
 /**
- * Given a Date, return it unchanged if within business hours (Mon-Fri 9-17 ET),
- * otherwise return 9 AM ET on the next business day.
+ * Given a Date, return it unchanged if within business hours (Mon-Fri 7-19 ET),
+ * otherwise return 7 AM ET on the next business day.
  */
 function nextBusinessOpen(date: Date): Date {
   const et = new Date(
