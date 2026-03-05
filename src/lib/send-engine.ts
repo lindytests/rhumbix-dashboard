@@ -188,6 +188,25 @@ export async function executeSendBatch(): Promise<SendBatchResult> {
     .set({ status: "completed", updated_at: now })
     .where(and(eq(leads.status, "email_5_sent"), isNull(leads.deleted_at)));
 
+  // SQL-level wait-period filter: prevents in-progress leads still in their
+  // cooldown from crowding out pending leads in the LIMIT'd query.
+  const intervalUnit = testMode ? "mins" : "days";
+  const waitExpr = sql`${leads.contacted_at} + make_interval(${sql.raw(intervalUnit)} => CASE ${leads.status}
+    WHEN 'email_1_sent' THEN coalesce(${leads.wait_after_email_1}, 0)
+    WHEN 'email_2_sent' THEN coalesce(${leads.wait_after_email_2}, 0)
+    WHEN 'email_3_sent' THEN coalesce(${leads.wait_after_email_3}, 0)
+    WHEN 'email_4_sent' THEN coalesce(${leads.wait_after_email_4}, 0)
+    ELSE 0
+  END)`;
+  const cooldownCheck = testMode
+    ? sql`(${waitExpr}) <= ${now.toISOString()}`
+    : sql`(${waitExpr})::date <= ${now.toISOString()}::date`;
+  const waitPeriodFilter = sql`(
+    ${leads.status} = 'pending'
+    OR ${leads.contacted_at} IS NULL
+    OR ${cooldownCheck}
+  )`;
+
   let totalSent = 0;
   let totalErrors = 0;
 
@@ -229,6 +248,7 @@ export async function executeSendBatch(): Promise<SendBatchResult> {
           inArray(leads.status, [...SENDABLE_STATUSES]),
           eq(leads.response_received, false),
           isNull(leads.deleted_at),
+          waitPeriodFilter,
         )
       )
       .orderBy(asc(leads.contacted_at))
@@ -257,6 +277,9 @@ export async function executeSendBatch(): Promise<SendBatchResult> {
 
       const next = NEXT_EMAIL[lead.status];
       if (!next) {
+        console.log(
+          `[send-engine] Lead ${lead.id} (${lead.email}) marked completed: no next email step from status "${lead.status}"`
+        );
         await db
           .update(leads)
           .set({ status: "completed", updated_at: now })
@@ -266,6 +289,9 @@ export async function executeSendBatch(): Promise<SendBatchResult> {
 
       const content = getEmailContent(lead, next.emailNum);
       if (!content) {
+        console.log(
+          `[send-engine] Lead ${lead.id} (${lead.email}) marked completed: no content for email ${next.emailNum} (status was "${lead.status}")`
+        );
         await db
           .update(leads)
           .set({ status: "completed", updated_at: now })
@@ -273,18 +299,19 @@ export async function executeSendBatch(): Promise<SendBatchResult> {
         continue;
       }
 
-      // GUARD 1: Dedup — check if this exact email number was already sent for this lead
-      const [alreadySent] = await db
+      // GUARD 1: Dedup — check if ANY log entry exists for this lead+email_number
+      // (covers sent, failed, or bounced — prevents duplicates if webhook
+      //  succeeded but response timed out and we logged "failed")
+      const [alreadyAttempted] = await db
         .select({ count: sql<number>`count(*)::int` })
         .from(sendLogs)
         .where(
           and(
             eq(sendLogs.lead_id, lead.id),
-            eq(sendLogs.email_number, next.emailNum),
-            eq(sendLogs.status, "sent")
+            eq(sendLogs.email_number, next.emailNum)
           )
         );
-      if ((alreadySent?.count ?? 0) > 0) continue;
+      if ((alreadyAttempted?.count ?? 0) > 0) continue;
 
       // Bounce check
       const [hasBounce] = await db
@@ -326,27 +353,34 @@ export async function executeSendBatch(): Promise<SendBatchResult> {
           headers["Authorization"] = `Bearer ${inbox.lindy_webhook_secret}`;
         }
 
-        const res = await fetch(inbox.lindy_webhook_url, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            to: lead.email,
-            subject: content.subject,
-            body: content.body,
-            lead_id: lead.id,
-            sender_inbox_id: inbox.id,
-            email_number: next.emailNum,
-            lead_data: {
-              first_name: lead.first_name,
-              last_name: lead.last_name,
-              email: lead.email,
-              company: lead.company,
-              title: lead.title,
-            },
-          }),
-        });
-        if (!res.ok) {
-          throw new Error(`Webhook returned ${res.status}`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 30_000);
+        try {
+          const res = await fetch(inbox.lindy_webhook_url, {
+            method: "POST",
+            headers,
+            signal: controller.signal,
+            body: JSON.stringify({
+              to: lead.email,
+              subject: content.subject,
+              body: content.body,
+              lead_id: lead.id,
+              sender_inbox_id: inbox.id,
+              email_number: next.emailNum,
+              lead_data: {
+                first_name: lead.first_name,
+                last_name: lead.last_name,
+                email: lead.email,
+                company: lead.company,
+                title: lead.title,
+              },
+            }),
+          });
+          if (!res.ok) {
+            throw new Error(`Webhook returned ${res.status}`);
+          }
+        } finally {
+          clearTimeout(timeout);
         }
 
         await db.insert(sendLogs).values({
