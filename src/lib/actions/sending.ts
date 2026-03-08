@@ -125,19 +125,18 @@ export async function sendSingleLead(
     return { success: false, error: "No email content configured for next step; lead marked completed" };
   }
 
-  // GUARD 1: Dedup check
-  const [alreadySent] = await db
+  // GUARD 1: Dedup — check for ANY existing log entry (sent, failed, or bounced)
+  const [alreadyAttempted] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(sendLogs)
     .where(
       and(
         eq(sendLogs.lead_id, lead.id),
-        eq(sendLogs.email_number, next.emailNum),
-        eq(sendLogs.status, "sent")
+        eq(sendLogs.email_number, next.emailNum)
       )
     );
-  if ((alreadySent?.count ?? 0) > 0) {
-    return { success: false, error: "This email was already sent" };
+  if ((alreadyAttempted?.count ?? 0) > 0) {
+    return { success: false, error: "This email was already sent or attempted" };
   }
 
   // GUARD 2: Bounce check
@@ -183,27 +182,34 @@ export async function sendSingleLead(
       headers["Authorization"] = `Bearer ${inbox.lindy_webhook_secret}`;
     }
 
-    const res = await fetch(inbox.lindy_webhook_url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        to: lead.email,
-        subject: content.subject,
-        body: content.body,
-        lead_id: lead.id,
-        sender_inbox_id: inbox.id,
-        email_number: next.emailNum,
-        lead_data: {
-          first_name: lead.first_name,
-          last_name: lead.last_name,
-          email: lead.email,
-          company: lead.company,
-          title: lead.title,
-        },
-      }),
-    });
-    if (!res.ok) {
-      throw new Error(`Webhook returned ${res.status}`);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    try {
+      const res = await fetch(inbox.lindy_webhook_url, {
+        method: "POST",
+        headers,
+        signal: controller.signal,
+        body: JSON.stringify({
+          to: lead.email,
+          subject: content.subject,
+          body: content.body,
+          lead_id: lead.id,
+          sender_inbox_id: inbox.id,
+          email_number: next.emailNum,
+          lead_data: {
+            first_name: lead.first_name,
+            last_name: lead.last_name,
+            email: lead.email,
+            company: lead.company,
+            title: lead.title,
+          },
+        }),
+      });
+      if (!res.ok) {
+        throw new Error(`Webhook returned ${res.status}`);
+      }
+    } finally {
+      clearTimeout(timeout);
     }
 
     await db.insert(sendLogs).values({

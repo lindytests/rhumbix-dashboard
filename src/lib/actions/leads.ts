@@ -44,7 +44,7 @@ async function assignInbox(): Promise<string | null> {
   return minId;
 }
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/;
 
 export async function createLead(data: {
   first_name: string;

@@ -74,6 +74,24 @@ export default function SendersClient({
       toast.error("Email and webhook URL are required");
       return;
     }
+    try {
+      const url = new URL(form.lindy_webhook_url);
+      if (url.protocol !== "https:") {
+        toast.error("Webhook URL must use HTTPS");
+        return;
+      }
+    } catch {
+      toast.error("Please enter a valid webhook URL");
+      return;
+    }
+    if (form.daily_limit < 1 || form.daily_limit > 500) {
+      toast.error("Daily limit must be between 1 and 500");
+      return;
+    }
+    if (form.hourly_limit < 1 || form.hourly_limit > 100) {
+      toast.error("Hourly limit must be between 1 and 100");
+      return;
+    }
     startTransition(async () => {
       if (editingInbox) {
         await updateInbox(editingInbox.id, form);
@@ -178,8 +196,10 @@ export default function SendersClient({
                   </Label>
                   <Input
                     type="number"
+                    min={1}
+                    max={500}
                     value={form.daily_limit}
-                    onChange={(e) => setForm({ ...form, daily_limit: parseInt(e.target.value, 10) || 80 })}
+                    onChange={(e) => setForm({ ...form, daily_limit: Math.max(1, Math.min(500, parseInt(e.target.value, 10) || 80)) })}
                     className="h-9 text-[13px] tabular-nums font-mono rounded-lg"
                   />
                 </div>
@@ -189,8 +209,10 @@ export default function SendersClient({
                   </Label>
                   <Input
                     type="number"
+                    min={1}
+                    max={100}
                     value={form.hourly_limit}
-                    onChange={(e) => setForm({ ...form, hourly_limit: parseInt(e.target.value, 10) || 10 })}
+                    onChange={(e) => setForm({ ...form, hourly_limit: Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 10)) })}
                     className="h-9 text-[13px] tabular-nums font-mono rounded-lg"
                   />
                 </div>

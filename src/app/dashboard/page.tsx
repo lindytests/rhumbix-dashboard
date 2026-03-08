@@ -18,7 +18,7 @@ import { LocalTime } from "@/components/local-time";
 function getStatusColor(sent: number, limit: number) {
   const ratio = sent / limit;
   if (ratio >= 0.9) return "text-red-700";
-  if (ratio >= 0.7) return "text-amber";
+  if (ratio >= 0.7) return "text-orange-600";
   return "text-emerald-600";
 }
 

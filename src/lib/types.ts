@@ -15,7 +15,6 @@ export interface Lead {
   email: string;
   company: string | null;
   title: string | null;
-  campaign_id: string | null;
   sender_inbox_id: string | null;
   sender_email?: string;
   status: LeadStatus;

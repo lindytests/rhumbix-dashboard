@@ -13,7 +13,9 @@ import {
   ScrollText,
   Menu,
   X,
+  LogOut,
 } from "lucide-react";
+import { handleSignOut } from "@/lib/actions/auth";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -114,6 +116,19 @@ export function Sidebar() {
             );
           })}
         </nav>
+
+        {/* Sign out */}
+        <div className="px-3 pb-5">
+          <form action={handleSignOut}>
+            <button
+              type="submit"
+              className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-[14px] tracking-[-0.02em] font-medium border border-transparent text-sidebar-foreground hover:bg-muted/80 hover:text-foreground transition-all duration-150 ease-[cubic-bezier(0.16,1,0.3,1)]"
+            >
+              <LogOut className="h-[18px] w-[18px] shrink-0" />
+              Sign Out
+            </button>
+          </form>
+        </div>
       </aside>
     </>
   );

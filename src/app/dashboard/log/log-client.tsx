@@ -266,6 +266,7 @@ export default function LogClient({ logs }: LogClientProps) {
                             hour: "numeric",
                             minute: "2-digit",
                             hour12: true,
+                            timeZoneName: "short",
                           })}
                         </span>
                       </TableCell>
