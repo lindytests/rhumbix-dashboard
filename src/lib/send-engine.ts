@@ -299,7 +299,7 @@ export async function executeSendBatch(): Promise<SendBatchResult> {
         continue;
       }
 
-      // GUARD 1: Dedup — check if ANY log entry exists for this lead+email_number
+      // GUARD 1a: Dedup — check if ANY log entry exists for this lead+email_number
       // (covers sent, failed, or bounced — prevents duplicates if webhook
       //  succeeded but response timed out and we logged "failed")
       const [alreadyAttempted] = await db
@@ -312,6 +312,26 @@ export async function executeSendBatch(): Promise<SendBatchResult> {
           )
         );
       if ((alreadyAttempted?.count ?? 0) > 0) continue;
+
+      // GUARD 1b: Cross-lead email dedup — if another lead row with the same
+      // email address already got this email step, skip.  Catches duplicate
+      // lead rows created by concurrent or repeated CSV imports.
+      const [emailDupe] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(sendLogs)
+        .innerJoin(leads, eq(sendLogs.lead_id, leads.id))
+        .where(
+          and(
+            sql`lower(${leads.email}) = lower(${lead.email})`,
+            eq(sendLogs.email_number, next.emailNum)
+          )
+        );
+      if ((emailDupe?.count ?? 0) > 0) {
+        console.log(
+          `[send-engine] Skipping lead ${lead.id} (${lead.email}): email ${next.emailNum} already sent to this address via another lead row`
+        );
+        continue;
+      }
 
       // Bounce check
       const [hasBounce] = await db

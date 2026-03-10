@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { db } from "@/lib/db";
 import { appSettings } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { executeSendBatch } from "@/lib/send-engine";
 
 export const dynamic = "force-dynamic";
@@ -49,11 +49,27 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ message: "Auto-send is disabled" });
   }
 
-  const result = await executeSendBatch();
+  // Advisory lock prevents concurrent batch executions (e.g. overlapping cron
+  // invocations or cron + manual "Send Now" racing).  pg_try_advisory_lock is
+  // non-blocking: if the lock is already held the call returns false and we
+  // skip this run rather than queue up.
+  const BATCH_LOCK_ID = 73901; // arbitrary unique id
+  const [lockResult] = await db.execute<{ acquired: boolean }>(
+    sql`SELECT pg_try_advisory_lock(${BATCH_LOCK_ID}) as acquired`
+  );
+  if (!lockResult?.acquired) {
+    return NextResponse.json({ message: "Another batch is already running" });
+  }
 
-  return NextResponse.json({
-    message: `Batch complete: ${result.sent} emails sent`,
-    sent: result.sent,
-    errors: result.errors,
-  });
+  try {
+    const result = await executeSendBatch();
+
+    return NextResponse.json({
+      message: `Batch complete: ${result.sent} emails sent`,
+      sent: result.sent,
+      errors: result.errors,
+    });
+  } finally {
+    await db.execute(sql`SELECT pg_advisory_unlock(${BATCH_LOCK_ID})`);
+  }
 }

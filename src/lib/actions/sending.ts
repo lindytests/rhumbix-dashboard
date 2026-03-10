@@ -6,6 +6,8 @@ import { eq, and, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { executeSendBatch } from "@/lib/send-engine";
 
+const BATCH_LOCK_ID = 73901; // must match cron route
+
 export async function toggleAutoSend(enabled: boolean) {
   const [existing] = await db
     .select()
@@ -49,9 +51,21 @@ export async function manualSendBatch(): Promise<{
   sent: number;
   errors: number;
 }> {
-  const result = await executeSendBatch();
-  revalidatePath("/dashboard");
-  return result;
+  // Same advisory lock as cron route — prevents manual + cron from racing
+  const [lockResult] = await db.execute<{ acquired: boolean }>(
+    sql`SELECT pg_try_advisory_lock(${BATCH_LOCK_ID}) as acquired`
+  );
+  if (!lockResult?.acquired) {
+    return { sent: 0, errors: 0 };
+  }
+
+  try {
+    const result = await executeSendBatch();
+    revalidatePath("/dashboard");
+    return result;
+  } finally {
+    await db.execute(sql`SELECT pg_advisory_unlock(${BATCH_LOCK_ID})`);
+  }
 }
 
 type LeadStatus = (typeof leadStatusEnum.enumValues)[number];
@@ -125,7 +139,7 @@ export async function sendSingleLead(
     return { success: false, error: "No email content configured for next step; lead marked completed" };
   }
 
-  // GUARD 1: Dedup — check for ANY existing log entry (sent, failed, or bounced)
+  // GUARD 1a: Dedup — check for ANY existing log entry (sent, failed, or bounced)
   const [alreadyAttempted] = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(sendLogs)
@@ -137,6 +151,22 @@ export async function sendSingleLead(
     );
   if ((alreadyAttempted?.count ?? 0) > 0) {
     return { success: false, error: "This email was already sent or attempted" };
+  }
+
+  // GUARD 1b: Cross-lead email dedup — prevent same recipient from getting
+  // duplicate emails when multiple lead rows exist for same email address
+  const [emailDupe] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(sendLogs)
+    .innerJoin(leads, eq(sendLogs.lead_id, leads.id))
+    .where(
+      and(
+        sql`lower(${leads.email}) = lower(${lead.email})`,
+        eq(sendLogs.email_number, next.emailNum)
+      )
+    );
+  if ((emailDupe?.count ?? 0) > 0) {
+    return { success: false, error: "This email step was already sent to this address via another lead" };
   }
 
   // GUARD 2: Bounce check

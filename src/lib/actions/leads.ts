@@ -250,7 +250,7 @@ export async function importLeads(
         : null;
 
     toInsert.push({
-      email: row.email.trim(),
+      email,
       first_name: row.first_name || null,
       last_name: row.last_name || null,
       company: row.company || null,
@@ -273,13 +273,23 @@ export async function importLeads(
     });
   }
 
+  let imported = 0;
   if (toInsert.length > 0) {
-    // Insert in batches of 100
+    // Insert in batches of 100.  onConflictDoNothing handles the race where
+    // the partial unique index (leads_email_active_unique) catches a duplicate
+    // that slipped past the app-level check above.
     for (let i = 0; i < toInsert.length; i += 100) {
-      await db.insert(leads).values(toInsert.slice(i, i + 100));
+      const batch = toInsert.slice(i, i + 100);
+      const result = await db
+        .insert(leads)
+        .values(batch)
+        .onConflictDoNothing()
+        .returning({ id: leads.id });
+      imported += result.length;
+      duplicates += batch.length - result.length;
     }
   }
 
   revalidatePath("/dashboard");
-  return { imported: toInsert.length, duplicates };
+  return { imported, duplicates };
 }
